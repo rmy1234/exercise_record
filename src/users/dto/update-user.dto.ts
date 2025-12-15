@@ -19,6 +19,10 @@ export class UpdateUserDto {
   @IsNumber()
   @Min(0)
   weight?: number;
+
+  @IsOptional()
+  @IsString()
+  profileImage?: string;
 }
 
 

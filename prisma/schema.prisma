@@ -16,6 +16,7 @@ model User {
   age         Int
   height      Float     // 키 (cm)
   weight      Float     // 몸무게 (kg)
+  profileImage String?  // 프로필 이미지 (base64)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   
@@ -107,6 +108,7 @@ model RecordSet {
   weight    Float
   reps      Int
   rpe       Float?
+  restTime  Int?    // 휴식시간 (초)
   createdAt DateTime @default(now())
   
   record    Record  @relation(fields: [recordId], references: [id], onDelete: Cascade)
