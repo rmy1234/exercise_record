@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String
+  gender      String    // 성별 (MALE, FEMALE)
+  age         Int
+  height      Float     // 키 (cm)
+  weight      Float     // 몸무게 (kg)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  routines    Routine[]
+  prs         PR[]
+  inbodyData  Inbody[]
+  records     Record[]
+  
+  @@map("users")
+}
+
+model Routine {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String    // 루틴 이름
+  description String?   // 루틴 설명
+  exercises   Json      // 운동 목록 (JSON 배열)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("routines")
+}
+
+model PR {
+  id          String    @id @default(cuid())
+  userId      String
+  squat       Float?    // 스쿼트 PR (kg)
+  bench       Float?    // 벤치프레스 PR (kg)
+  deadlift    Float?    // 데드리프트 PR (kg)
+  date        DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("prs")
+}
+
+model Inbody {
+  id              String    @id @default(cuid())
+  userId          String
+  date            DateTime  @default(now())
+  weight          Float     // 체중 (kg)
+  skeletalMuscle  Float     // 골격근량 (kg)
+  bodyFat         Float?    // 체지방량 (kg)
+  bodyFatPercent  Float?    // 체지방률 (%)
+  bmi             Float?    // BMI
+  basalMetabolic  Float?    // 기초대사량 (kcal)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("inbody")
+}
+
+model Exercise {
+  id         String    @id @default(cuid())
+  name       String
+  category   String
+  isFavorite Boolean   @default(false)
+  records    Record[]
+  
+  @@map("exercises")
+}
+
+model Record {
+  id         String      @id @default(cuid())
+  userId     String
+  exerciseId String
+  date       DateTime
+  sets       RecordSet[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise   Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  
+  @@map("records")
+}
+
+model RecordSet {
+  id        String  @id @default(cuid())
+  recordId  String
+  setNumber Int
+  weight    Float
+  reps      Int
+  rpe       Float?
+  createdAt DateTime @default(now())
+  
+  record    Record  @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  
+  @@map("record_sets")
+}
