@@ -621,7 +621,7 @@ export default function RoutinesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>운동 기록</Text>
+        <Text style={styles.title}>루틴</Text>
         
         {/* 탭 컨트롤 */}
         <View style={styles.tabContainer}>

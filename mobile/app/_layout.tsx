@@ -32,7 +32,9 @@ function RootLayoutNav() {
           message.includes('Unknown event handler property') ||
           message.includes('onResponder') ||
           message.includes('onStartShouldSetResponder') ||
-          message.includes('Did you mean')
+          message.includes('Did you mean') ||
+          message.includes('Accessing element.ref') ||
+          message.includes('ref is now a regular prop')
         ) {
           return;
         }
@@ -48,7 +50,9 @@ function RootLayoutNav() {
           message.includes('Unknown event handler property') ||
           message.includes('onResponder') ||
           message.includes('onStartShouldSetResponder') ||
-          message.includes('Did you mean')
+          message.includes('Did you mean') ||
+          message.includes('Accessing element.ref') ||
+          message.includes('ref is now a regular prop')
         ) {
           return;
         }
@@ -65,7 +69,9 @@ function RootLayoutNav() {
           if (errorOverlay) {
             const errorText = errorOverlay.textContent || '';
             if (errorText.includes('transform-origin') || 
-                errorText.includes('Invalid DOM property')) {
+                errorText.includes('Invalid DOM property') ||
+                errorText.includes('Accessing element.ref') ||
+                errorText.includes('ref is now a regular prop')) {
               errorOverlay.remove();
             }
           }
@@ -87,6 +93,8 @@ function RootLayoutNav() {
       /onResponder/,
       /onStartShouldSetResponder/,
       /Did you mean/,
+      /Accessing element\.ref/,
+      /ref is now a regular prop/,
     ]);
   }, []);
 
