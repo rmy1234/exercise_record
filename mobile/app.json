@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "RepNote",
+    "slug": "repnote",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/RepNote.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "repnote",
+    "splash": {
+      "image": "./assets/RepNote.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.repnote.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.repnote.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/RepNote.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/RepNote.png",
+      "name": "RepNote",
+      "shortName": "RepNote",
+      "lang": "ko",
+      "scope": "/",
+      "themeColor": "#ffffff",
+      "backgroundColor": "#ffffff",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "192b7f4f-e687-404a-a71c-d471ca4772da"
+      }
+    }
+  }
+}
