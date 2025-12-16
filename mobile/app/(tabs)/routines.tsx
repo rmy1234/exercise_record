@@ -15,11 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { Colors } from '../../constants/Colors';
-import { Plus, X, ChevronRight, Dumbbell, ChevronDown, ChevronLeft, Calendar as CalendarIcon, Trash2, Edit2, ListOrdered, Check } from 'lucide-react-native';
+import { Plus, X, ChevronRight, Dumbbell, ChevronDown, ChevronLeft, Calendar as CalendarIcon, Trash2, Edit2, ListOrdered, Check, GripVertical } from 'lucide-react-native';
 import { exercisesApi, recordsApi } from '../../services/api';
 import { Exercise, Record, RecordSet, RoutineTemplate, CreateRoutineTemplateRequest } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { routineStorage } from '../../services/routineStorage';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // 캘린더 한글 설정
 LocaleConfig.locales['kr'] = {
@@ -301,6 +303,54 @@ export default function RoutinesScreen() {
           },
         ]
       );
+    }
+  };
+
+  // 운동 순서 변경 (날짜별 운동 - 부위별)
+  const handleReorderDailyRecordsByCategory = async (category: string, newData: Record[]) => {
+    // 해당 부위의 운동들만 업데이트
+    const otherRecords = dailyRecords.filter(r => (r.exercise?.category || '기타') !== category);
+    
+    // 부위별로 그룹화
+    const groupedRecords: { [key: string]: Record[] } = {};
+    otherRecords.forEach(record => {
+      const cat = record.exercise?.category || '기타';
+      if (!groupedRecords[cat]) {
+        groupedRecords[cat] = [];
+      }
+      groupedRecords[cat].push(record);
+    });
+    
+    // 업데이트된 부위 추가
+    groupedRecords[category] = newData;
+    
+    // BODY_PARTS 순서대로 정렬
+    const sortedCategories = Object.keys(groupedRecords).sort((a, b) => {
+      const indexA = BODY_PARTS.indexOf(a);
+      const indexB = BODY_PARTS.indexOf(b);
+      if (indexA === -1 && indexB === -1) return a.localeCompare(b, 'ko');
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+    
+    // 전체 순서 재구성
+    const updatedRecords: Record[] = [];
+    sortedCategories.forEach(cat => {
+      updatedRecords.push(...groupedRecords[cat]);
+    });
+    
+    setDailyRecords(updatedRecords);
+    
+    try {
+      // 서버에 순서 업데이트
+      for (let i = 0; i < updatedRecords.length; i++) {
+        await recordsApi.updateOrder(updatedRecords[i].id, i);
+      }
+    } catch (e) {
+      console.error('Failed to update order', e);
+      // 실패 시 다시 불러오기
+      await fetchDailyRecords(selectedDate);
     }
   };
 
@@ -696,37 +746,59 @@ export default function RoutinesScreen() {
                       <Text style={styles.categoryTitle}>{category}</Text>
                       <View style={styles.categoryDivider} />
                     </View>
-                    {groupedRecords[category].map((record: RecordType) => {
-                      const currentIndex = globalIndex++;
-                      return (
-                        <View key={record.id} style={styles.recordCard}>
-                          <TouchableOpacity 
-                            style={styles.recordItemContainer}
-                            onPress={() => openSetModal(record)}
-                          >
-                            <View style={styles.recordItem}>
-                              <View style={styles.recordNumber}>
-                                <Text style={styles.recordNumberText}>{currentIndex + 1}</Text>
+                    <GestureHandlerRootView>
+                      <DraggableFlatList
+                        data={groupedRecords[category]}
+                        keyExtractor={(item) => item.id}
+                        scrollEnabled={false}
+                        onDragEnd={({ data }) => handleReorderDailyRecordsByCategory(category, data)}
+                        renderItem={({ item: record, drag, isActive, getIndex }: RenderItemParams<RecordType>) => {
+                          const currentIndex = globalIndex++;
+                          return (
+                            <ScaleDecorator>
+                              <View style={[
+                                styles.recordCard,
+                                isActive && styles.recordCardActive
+                              ]}>
+                                <TouchableOpacity 
+                                  style={styles.dragHandle}
+                                  onLongPress={Platform.OS !== 'web' ? drag : undefined}
+                                  onPressIn={Platform.OS === 'web' ? drag : undefined}
+                                  disabled={isActive}
+                                >
+                                  <GripVertical color={Colors.textSecondary} size={20} />
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                  style={styles.recordItemContainer}
+                                  onPress={() => !isActive && openSetModal(record)}
+                                  onLongPress={Platform.OS === 'web' ? drag : undefined}
+                                >
+                                  <View style={styles.recordItem}>
+                                    <View style={styles.recordNumber}>
+                                      <Text style={styles.recordNumberText}>{currentIndex + 1}</Text>
+                                    </View>
+                                    <View style={styles.recordContent}>
+                                      <Text style={styles.recordName}>{record.exercise?.name || '알 수 없는 운동'}</Text>
+                                      <Text style={styles.recordCategory}>
+                                        {record.sets && record.sets.length > 0 
+                                          ? `${record.sets.length}세트 - ${record.sets.map((s: RecordSet) => `${s.weight}kg × ${s.reps}회`).join(', ')}`
+                                          : '기록 없음'}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={styles.deleteRecordButton}
+                                  onPress={() => handleDeleteRecord(record.id, record.exercise?.name || '운동')}
+                                >
+                                  <Trash2 color={Colors.danger} size={20} />
+                                </TouchableOpacity>
                               </View>
-                              <View style={styles.recordContent}>
-                                <Text style={styles.recordName}>{record.exercise?.name || '알 수 없는 운동'}</Text>
-                                <Text style={styles.recordCategory}>
-                                  {record.sets && record.sets.length > 0 
-                                    ? `${record.sets.length}세트 - ${record.sets.map((s: RecordSet) => `${s.weight}kg × ${s.reps}회`).join(', ')}`
-                                    : '기록 없음'}
-                                </Text>
-                              </View>
-                            </View>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteRecordButton}
-                            onPress={() => handleDeleteRecord(record.id, record.exercise?.name || '운동')}
-                          >
-                            <Trash2 color={Colors.danger} size={20} />
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
+                            </ScaleDecorator>
+                          );
+                        }}
+                      />
+                    </GestureHandlerRootView>
                   </View>
                 ));
               })()}
@@ -1238,61 +1310,85 @@ export default function RoutinesScreen() {
 
           {step === 'PART' ? (
             <>
-              <View style={styles.partsContainer}>
-                {BODY_PARTS.map((part) => (
-                  <TouchableOpacity
-                    key={part}
-                    style={styles.partCard}
-                    onPress={() => {
-                      setSelectedPart(part);
-                      setStep('EXERCISE');
-                    }}
-                  >
-                    <Dumbbell color={Colors.primary} size={32} />
-                    <Text style={styles.partText}>{part}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView 
+                style={styles.routineModalScrollView}
+                contentContainerStyle={styles.routineModalScrollContent}
+                showsVerticalScrollIndicator={true}
+              >
+                <View style={styles.partsContainer}>
+                  {BODY_PARTS.map((part) => (
+                    <TouchableOpacity
+                      key={part}
+                      style={styles.partCard}
+                      onPress={() => {
+                        setSelectedPart(part);
+                        setStep('EXERCISE');
+                      }}
+                    >
+                      <Dumbbell color={Colors.primary} size={32} />
+                      <Text style={styles.partText}>{part}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                
+                {/* 선택된 운동 목록 (드래그 가능) */}
+                {selectedExercisesForRoutine.length > 0 && (
+                  <View style={styles.selectedExercisesSection}>
+                    <Text style={styles.selectedExercisesTitle}>선택된 운동 ({selectedExercisesForRoutine.length}개)</Text>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <DraggableFlatList
+                        data={selectedExercisesForRoutine}
+                        keyExtractor={(item, index) => `${item.exerciseId}-${index}`}
+                        onDragEnd={({ data }) => setSelectedExercisesForRoutine(data)}
+                        scrollEnabled={false}
+                        renderItem={({ item, drag, isActive, getIndex }) => {
+                          const index = getIndex();
+                          return (
+                            <ScaleDecorator>
+                              <View style={[
+                                styles.selectedExerciseItem,
+                                isActive && styles.selectedExerciseItemActive
+                              ]}>
+                                <TouchableOpacity 
+                                  onLongPress={Platform.OS !== 'web' ? drag : undefined}
+                                  onPressIn={Platform.OS === 'web' ? drag : undefined}
+                                  disabled={isActive}
+                                  style={styles.dragHandle}
+                                >
+                                  <GripVertical color={Colors.textSecondary} size={16} />
+                                </TouchableOpacity>
+                                <View style={styles.selectedExerciseNumber}>
+                                  <Text style={styles.selectedExerciseNumberText}>{(index ?? 0) + 1}</Text>
+                                </View>
+                                <View style={styles.selectedExerciseContent}>
+                                  <Text style={styles.selectedExerciseName}>{item.exerciseName}</Text>
+                                  <Text style={styles.selectedExerciseCategory}>{item.category}</Text>
+                                </View>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    if (!isActive) {
+                                      setSelectedExercisesForRoutine(prev => 
+                                        prev.filter(e => e.exerciseId !== item.exerciseId)
+                                      );
+                                    }
+                                  }}
+                                  style={styles.removeExerciseButton}
+                                >
+                                  <X color={Colors.danger} size={18} />
+                                </TouchableOpacity>
+                              </View>
+                            </ScaleDecorator>
+                          );
+                        }}
+                      />
+                    </GestureHandlerRootView>
+                  </View>
+                )}
+              </ScrollView>
               
-              {/* 하단 저장 버튼 */}
+              {/* 하단 저장 버튼 (고정) */}
               {selectedExercisesForRoutine.length > 0 && (
                 <View style={styles.routineBottomActionsFixed}>
-                  <TouchableOpacity
-                    style={styles.viewSelectedButton}
-                    onPress={() => {
-                      // 선택된 운동 목록 표시
-                      if (selectedExercisesForRoutine.length === 0) {
-                        if (Platform.OS === 'web') {
-                          if (typeof window !== 'undefined') {
-                            window.alert('선택된 운동이 없습니다.');
-                          }
-                        } else {
-                          Alert.alert('알림', '선택된 운동이 없습니다.');
-                        }
-                        return;
-                      }
-
-                      const exerciseList = selectedExercisesForRoutine
-                        .map((ex, idx) => `${idx + 1}. ${ex.exerciseName}`)
-                        .join('\n');
-                      
-                      if (Platform.OS === 'web') {
-                        if (typeof window !== 'undefined') {
-                          window.alert(`선택된 운동\n\n${exerciseList}`);
-                        }
-                      } else {
-                        Alert.alert(
-                          '선택된 운동',
-                          exerciseList,
-                          [{ text: '확인' }]
-                        );
-                      }
-                    }}
-                  >
-                    <ListOrdered color={Colors.primary} size={20} />
-                    <Text style={styles.viewSelectedButtonText}>선택 목록 보기</Text>
-                  </TouchableOpacity>
-                  
                   <TouchableOpacity
                     style={styles.saveRoutineButtonFixed}
                     onPress={handleSaveRoutine}
@@ -1569,15 +1665,47 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 0,
+    marginBottom: 12,
+  },
+  recordCardActive: {
+    backgroundColor: Colors.background,
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  dragHandle: {
+    padding: 0,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   recordItemContainer: {
     flex: 1,
   },
+  recordNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  recordCategoryBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.primary,
+    backgroundColor: Colors.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
   recordItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    alignItems: 'center',
+    gap: 10,
   },
   deleteRecordButton: {
     padding: 8,
@@ -1589,12 +1717,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6', // 연한 회색 배경
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
   recordNumberText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.text,
+    color: Colors.primary,
   },
   recordContent: {
     flex: 1,
@@ -1710,6 +1837,7 @@ const styles = StyleSheet.create({
   },
   partsContainer: {
     padding: 20,
+    paddingBottom: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
@@ -2154,5 +2282,75 @@ const styles = StyleSheet.create({
   loadRoutineEmptySubText: {
     fontSize: 14,
     color: Colors.textSecondary,
+  },
+  // 루틴 모달 스크롤 스타일
+  routineModalScrollView: {
+    flex: 1,
+  },
+  routineModalScrollContent: {
+    paddingBottom: 20,
+  },
+  // 선택된 운동 목록 스타일
+  selectedExercisesSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  selectedExercisesTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  selectedExerciseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    gap: 8,
+  },
+  selectedExerciseItemActive: {
+    backgroundColor: Colors.background,
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  selectedExerciseNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primary + '1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedExerciseNumberText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  selectedExerciseContent: {
+    flex: 1,
+    gap: 2,
+  },
+  selectedExerciseName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  selectedExerciseCategory: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  removeExerciseButton: {
+    padding: 4,
   },
 });

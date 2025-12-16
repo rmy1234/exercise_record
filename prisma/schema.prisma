@@ -75,6 +75,7 @@ model Record {
   userId     String
   exerciseId String
   date       DateTime
+  order      Int         @default(0) // 운동 순서
   sets       RecordSet[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt

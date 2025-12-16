@@ -8,11 +8,34 @@ export class RecordsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createRecordDto: CreateRecordDto) {
+    // 해당 날짜의 마지막 order 값을 찾아서 +1
+    const startDate = new Date(createRecordDto.date);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    const lastRecord = await this.prisma.record.findFirst({
+      where: {
+        userId: createRecordDto.userId,
+        date: {
+          gte: startDate,
+          lt: endDate,
+        },
+      },
+      orderBy: {
+        order: 'desc',
+      },
+    });
+
+    const order = lastRecord ? lastRecord.order + 1 : 0;
+
     return this.prisma.record.create({
       data: {
         userId: createRecordDto.userId,
         exerciseId: createRecordDto.exerciseId,
         date: new Date(createRecordDto.date),
+        order,
       },
       include: {
         exercise: true,
@@ -42,6 +65,9 @@ export class RecordsService {
         sets: {
           orderBy: { setNumber: 'asc' },
         },
+      },
+      orderBy: {
+        order: 'asc',
       },
     });
   }
@@ -98,6 +124,19 @@ export class RecordsService {
   async delete(id: string) {
     return this.prisma.record.delete({
       where: { id },
+    });
+  }
+
+  async updateOrder(id: string, order: number) {
+    return this.prisma.record.update({
+      where: { id },
+      data: { order },
+      include: {
+        exercise: true,
+        sets: {
+          orderBy: { setNumber: 'asc' },
+        },
+      },
     });
   }
 }

@@ -147,6 +147,7 @@ export default function HomeScreen() {
     }
   };
 
+
   // 화면이 포커스될 때마다 데이터 새로고침
   useFocusEffect(
     useCallback(() => {
@@ -562,7 +563,7 @@ const styles = StyleSheet.create({
   },
   routineItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
     paddingVertical: 8,
   },
@@ -578,7 +579,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary + '1A', // primary/10
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
   routineNumberText: {
     fontSize: 12,

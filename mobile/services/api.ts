@@ -183,6 +183,11 @@ export const recordsApi = {
   delete: async (recordId: string) => {
     await api.delete(`/records/${recordId}`);
   },
+
+  updateOrder: async (recordId: string, order: number) => {
+    const response = await api.patch(`/records/${recordId}/order`, { order });
+    return response.data;
+  },
 };
 
 // WorkoutDays API (운동 완료 여부/주간 카운트용)

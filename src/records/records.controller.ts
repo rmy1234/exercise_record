@@ -46,5 +46,10 @@ export class RecordsController {
   delete(@Param('id') id: string) {
     return this.recordsService.delete(id);
   }
+
+  @Patch(':id/order')
+  updateOrder(@Param('id') id: string, @Body('order') order: number) {
+    return this.recordsService.updateOrder(id, order);
+  }
 }
 

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "records" ADD COLUMN "order" INTEGER NOT NULL DEFAULT 0;
+
