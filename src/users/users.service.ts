@@ -66,7 +66,6 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
-        routines: true,
         prs: {
           orderBy: { date: 'desc' },
           take: 1,

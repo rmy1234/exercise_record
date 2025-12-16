@@ -1,21 +1,23 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
-import { RoutinesModule } from './routines/routines.module';
 import { PRsModule } from './prs/prs.module';
 import { InbodyModule } from './inbody/inbody.module';
 import { ExercisesModule } from './exercises/exercises.module';
 import { RecordsModule } from './records/records.module';
+import { WorkoutDaysModule } from './workout-days/workout-days.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     PrismaModule,
     UsersModule,
-    RoutinesModule,
     PRsModule,
     InbodyModule,
     ExercisesModule,
     RecordsModule,
+    WorkoutDaysModule,
   ],
 })
 export class AppModule {}

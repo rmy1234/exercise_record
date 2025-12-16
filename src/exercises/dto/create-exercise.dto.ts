@@ -10,3 +10,5 @@ export class CreateExerciseDto {
   category: string;
 }
 
+
+

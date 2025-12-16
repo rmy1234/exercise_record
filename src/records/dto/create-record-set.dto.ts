@@ -1,16 +1,16 @@
-import { IsString, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsInt } from 'class-validator';
 
 export class CreateRecordSetDto {
   @IsString()
   recordId: string;
 
-  @IsNumber()
+  @IsInt()
   setNumber: number;
 
   @IsNumber()
   weight: number;
 
-  @IsNumber()
+  @IsInt()
   reps: number;
 
   @IsOptional()
@@ -18,7 +18,6 @@ export class CreateRecordSetDto {
   rpe?: number;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   restTime?: number;
 }
-

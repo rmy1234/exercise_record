@@ -38,16 +38,9 @@ npm run start:dev
 ### Users (사용자)
 - `POST /users` - 사용자 생성
 - `GET /users` - 사용자 목록
-- `GET /users/:id` - 사용자 상세 (루틴, PR, 인바디 포함)
+- `GET /users/:id` - 사용자 상세 (PR, 인바디 포함)
 - `PATCH /users/:id` - 사용자 정보 수정
 - `DELETE /users/:id` - 사용자 삭제
-
-### Routines (루틴)
-- `POST /routines` - 루틴 생성
-- `GET /routines?userId=xxx` - 루틴 목록 (사용자별 필터링 가능)
-- `GET /routines/:id` - 루틴 상세
-- `PATCH /routines/:id` - 루틴 수정
-- `DELETE /routines/:id` - 루틴 삭제
 
 ### PRs (3대중량)
 - `POST /prs` - PR 기록 생성
@@ -68,9 +61,12 @@ npm run start:dev
 ## 데이터베이스 스키마
 
 - **User**: 이름, 나이, 키, 몸무게
-- **Routine**: 루틴 이름, 설명, 운동 목록 (JSON)
 - **PR**: 스쿼트, 벤치프레스, 데드리프트 최고 기록
 - **Inbody**: 체중, 골격근량, 체지방량, BMI, 기초대사량 등
+- **Exercise**: 운동 종목
+- **Record**: 운동 기록 (날짜별)
+- **RecordSet**: 운동 세트 기록
+- **WorkoutDay**: 운동 완료 일자
 
 ## 기술 스택
 
@@ -78,5 +74,7 @@ npm run start:dev
 - Prisma
 - PostgreSQL
 - TypeScript
+
+
 
 
