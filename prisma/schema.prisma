@@ -65,7 +65,6 @@ model Exercise {
   id         String   @id @default(cuid())
   name       String
   category   String
-  isFavorite Boolean  @default(false)
   records    Record[]
 
   @@map("exercises")
@@ -116,7 +115,4 @@ model WorkoutDay {
   @@unique([userId, date])
   @@map("workout_days")
 }
-
-
-
 
