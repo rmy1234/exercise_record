@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, IsDateString } from 'class-validator';
 
 export class CreatePRDto {
   @IsString()
@@ -20,7 +20,8 @@ export class CreatePRDto {
   deadlift?: number; // kg
 
   @IsOptional()
-  date?: Date;
+  @IsDateString()
+  date?: string;
 }
 
 

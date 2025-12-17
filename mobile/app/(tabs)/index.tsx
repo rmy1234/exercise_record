@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Modal, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Modal, FlatList, Alert, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
-import { Dumbbell, TrendingUp, Calendar, ArrowUp, Check, X, ChevronRight, ListOrdered } from 'lucide-react-native';
+import { Dumbbell, TrendingUp, Calendar, ArrowUp, Check, X, ChevronRight, ListOrdered, Edit2 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { recordsApi, workoutDaysApi, prsApi } from '../../services/api';
 import { Record, RoutineTemplate, PR } from '../../types';
@@ -21,6 +21,8 @@ export default function HomeScreen() {
   const [routineModalVisible, setRoutineModalVisible] = useState(false);
   const [routines, setRoutines] = useState<RoutineTemplate[]>([]);
   const [latestPR, setLatestPR] = useState<PR | null>(null);
+  const [prModalVisible, setPrModalVisible] = useState(false);
+  const [prInput, setPrInput] = useState({ squat: '', bench: '', deadlift: '' });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -210,7 +212,22 @@ export default function HomeScreen() {
 
         {/* 3대 중량 요약 카드 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>나의 3대 중량 (PR)</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>나의 3대 중량 (PR)</Text>
+            <TouchableOpacity 
+              style={styles.editPrButton}
+              onPress={() => {
+                setPrInput({
+                  squat: latestPR?.squat?.toString() || '',
+                  bench: latestPR?.bench?.toString() || '',
+                  deadlift: latestPR?.deadlift?.toString() || '',
+                });
+                setPrModalVisible(true);
+              }}
+            >
+              <Edit2 color={Colors.primary} size={18} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.prCard}>
             <View style={styles.prGrid}>
               <View style={styles.prGridItem}>
@@ -451,6 +468,113 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 3대 중량 입력 모달 */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={prModalVisible}
+        onRequestClose={() => setPrModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>3대 중량 입력</Text>
+              <TouchableOpacity onPress={() => setPrModalVisible(false)}>
+                <X color={Colors.text} size={24} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.prInputContainer}>
+              <View style={styles.prInputItem}>
+                <Text style={styles.prInputLabel}>스쿼트 (Squat)</Text>
+                <View style={styles.prInputRow}>
+                  <TextInput
+                    style={styles.prInput}
+                    value={prInput.squat}
+                    onChangeText={(text) => setPrInput({ ...prInput, squat: text })}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textSecondary}
+                  />
+                  <Text style={styles.prInputUnit}>kg</Text>
+                </View>
+              </View>
+
+              <View style={styles.prInputItem}>
+                <Text style={styles.prInputLabel}>벤치프레스 (Bench)</Text>
+                <View style={styles.prInputRow}>
+                  <TextInput
+                    style={styles.prInput}
+                    value={prInput.bench}
+                    onChangeText={(text) => setPrInput({ ...prInput, bench: text })}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textSecondary}
+                  />
+                  <Text style={styles.prInputUnit}>kg</Text>
+                </View>
+              </View>
+
+              <View style={styles.prInputItem}>
+                <Text style={styles.prInputLabel}>데드리프트 (Deadlift)</Text>
+                <View style={styles.prInputRow}>
+                  <TextInput
+                    style={styles.prInput}
+                    value={prInput.deadlift}
+                    onChangeText={(text) => setPrInput({ ...prInput, deadlift: text })}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Colors.textSecondary}
+                  />
+                  <Text style={styles.prInputUnit}>kg</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setPrModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.savePrButton}
+                onPress={async () => {
+                  if (!user) return;
+                  
+                  try {
+                    // 최소 하나의 값은 입력되어야 함
+                    if (!prInput.squat && !prInput.bench && !prInput.deadlift) {
+                      Alert.alert('알림', '최소 하나의 중량을 입력해주세요.');
+                      return;
+                    }
+
+                    const prData = {
+                      userId: user.id,
+                      squat: prInput.squat && prInput.squat.trim() ? parseFloat(prInput.squat) : undefined,
+                      bench: prInput.bench && prInput.bench.trim() ? parseFloat(prInput.bench) : undefined,
+                      deadlift: prInput.deadlift && prInput.deadlift.trim() ? parseFloat(prInput.deadlift) : undefined,
+                      date: new Date().toISOString().split('T')[0],
+                    };
+
+                    await prsApi.create(prData);
+                    await fetchLatestPR();
+                    setPrModalVisible(false);
+                    Alert.alert('성공', '3대 중량이 저장되었습니다.');
+                  } catch (e) {
+                    console.error('Failed to save PR', e);
+                    Alert.alert('오류', '3대 중량 저장에 실패했습니다.');
+                  }
+                }}
+              >
+                <Text style={styles.savePrButtonText}>저장</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -481,10 +605,18 @@ const styles = StyleSheet.create({
   section: {
     gap: 12,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: Colors.text,
+  },
+  editPrButton: {
+    padding: 4,
   },
   // PR Card Styles
   prCard: {
@@ -810,5 +942,71 @@ const styles = StyleSheet.create({
   modalEmptySubText: {
     fontSize: 14,
     color: Colors.textSecondary,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  cancelButtonText: {
+    color: Colors.text,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  savePrButton: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  savePrButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  prInputContainer: {
+    padding: 20,
+    gap: 20,
+  },
+  prInputItem: {
+    gap: 8,
+  },
+  prInputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  prInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  prInput: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  prInputUnit: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    minWidth: 30,
   },
 });

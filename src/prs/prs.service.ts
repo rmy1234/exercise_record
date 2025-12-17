@@ -25,7 +25,7 @@ export class PRsService {
         squat: createPRDto.squat,
         bench: createPRDto.bench,
         deadlift: createPRDto.deadlift,
-        date: createPRDto.date || new Date(),
+        date: createPRDto.date ? new Date(createPRDto.date) : new Date(),
       },
     });
   }
