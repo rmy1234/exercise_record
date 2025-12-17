@@ -19,20 +19,6 @@ CREATE TABLE "users" (
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateTable
-CREATE TABLE "routines" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "description" TEXT,
-    "exercises" JSONB NOT NULL,
-    "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "routines_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "prs" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -100,9 +86,6 @@ CREATE TABLE "record_sets" (
 
     CONSTRAINT "record_sets_pkey" PRIMARY KEY ("id")
 );
-
--- AddForeignKey
-ALTER TABLE "routines" ADD CONSTRAINT "routines_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "prs" ADD CONSTRAINT "prs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
