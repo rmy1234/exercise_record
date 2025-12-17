@@ -213,4 +213,31 @@ export const workoutDaysApi = {
   },
 };
 
+// Routines API
+export const routinesApi = {
+  getAll: async (userId: string) => {
+    const response = await api.get('/routines', { params: { userId } });
+    return response.data;
+  },
+
+  getById: async (id: string, userId: string) => {
+    const response = await api.get(`/routines/${id}`, { params: { userId } });
+    return response.data;
+  },
+
+  create: async (userId: string, data: { name: string; exercises: { exerciseId: string; exerciseName: string; category: string; }[] }) => {
+    const response = await api.post('/routines', data, { params: { userId } });
+    return response.data;
+  },
+
+  update: async (id: string, userId: string, data: { name?: string; exercises?: { exerciseId: string; exerciseName: string; category: string; }[] }) => {
+    const response = await api.patch(`/routines/${id}`, data, { params: { userId } });
+    return response.data;
+  },
+
+  delete: async (id: string, userId: string) => {
+    await api.delete(`/routines/${id}`, { params: { userId } });
+  },
+};
+
 export default api;

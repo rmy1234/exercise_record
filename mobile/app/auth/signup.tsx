@@ -106,6 +106,7 @@ export default function SignupScreen() {
             <TextInput
               style={styles.input}
               placeholder="example@email.com"
+              placeholderTextColor={Colors.textSecondary + '60'}
               value={formData.email}
               onChangeText={(text) => handleChange('email', text)}
               keyboardType="email-address"
@@ -118,6 +119,7 @@ export default function SignupScreen() {
             <TextInput
               style={styles.input}
               placeholder="비밀번호 입력"
+              placeholderTextColor={Colors.textSecondary + '60'}
               value={formData.password}
               onChangeText={(text) => handleChange('password', text)}
               secureTextEntry
@@ -129,6 +131,7 @@ export default function SignupScreen() {
             <TextInput
               style={styles.input}
               placeholder="비밀번호 재입력"
+              placeholderTextColor={Colors.textSecondary + '60'}
               value={formData.confirmPassword}
               onChangeText={(text) => handleChange('confirmPassword', text)}
               secureTextEntry
@@ -141,7 +144,8 @@ export default function SignupScreen() {
             <Text style={styles.label}>이름</Text>
             <TextInput
               style={styles.input}
-              placeholder="홍길동"
+              placeholder="이름 입력"
+              placeholderTextColor={Colors.textSecondary + '60'}
               value={formData.name}
               onChangeText={(text) => handleChange('name', text)}
             />
@@ -190,7 +194,8 @@ export default function SignupScreen() {
               <Text style={styles.label}>나이</Text>
               <TextInput
                 style={styles.input}
-                placeholder="25"
+                placeholder="나이 입력"
+                placeholderTextColor={Colors.textSecondary + '60'}
                 value={formData.age}
                 onChangeText={(text) => handleChange('age', text)}
                 keyboardType="numeric"
@@ -200,7 +205,8 @@ export default function SignupScreen() {
               <Text style={styles.label}>키 (cm)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="175"
+                placeholder="키 입력"
+                placeholderTextColor={Colors.textSecondary + '60'}
                 value={formData.height}
                 onChangeText={(text) => handleChange('height', text)}
                 keyboardType="numeric"
@@ -212,7 +218,8 @@ export default function SignupScreen() {
             <Text style={styles.label}>몸무게 (kg)</Text>
             <TextInput
               style={styles.input}
-              placeholder="70"
+              placeholder="몸무게 입력"
+              placeholderTextColor={Colors.textSecondary + '60'}
               value={formData.weight}
               onChangeText={(text) => handleChange('weight', text)}
               keyboardType="numeric"

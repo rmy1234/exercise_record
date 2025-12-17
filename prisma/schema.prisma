@@ -24,6 +24,7 @@ model User {
   inbodyData   Inbody[]
   records      Record[]
   workoutDays  WorkoutDay[]
+  routines     RoutineTemplate[]
 
   @@map("users")
 }
@@ -115,5 +116,18 @@ model WorkoutDay {
 
   @@unique([userId, date])
   @@map("workout_days")
+}
+
+model RoutineTemplate {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  exercises Json     // [{ exerciseId, exerciseName, category }]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("routine_templates")
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,73 @@ import {
   ScrollView,
 } from 'react-native';
 import { Link } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Check } from 'lucide-react-native';
+
+const REMEMBER_ME_KEY = 'rememberMe';
+const SAVED_CREDENTIALS_KEY = 'savedCredentials';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(true);
   const { login } = useAuth();
+
+  useEffect(() => {
+    checkSavedCredentials();
+  }, []);
+
+  const checkSavedCredentials = async () => {
+    try {
+      const savedRememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY);
+      if (savedRememberMe === 'true') {
+        const savedCredentials = await AsyncStorage.getItem(SAVED_CREDENTIALS_KEY);
+        if (savedCredentials) {
+          const { email: savedEmail, password: savedPassword } = JSON.parse(savedCredentials);
+          setEmail(savedEmail);
+          setPassword(savedPassword);
+          setRememberMe(true);
+          
+          // 자동 로그인 시도
+          try {
+            await login({ email: savedEmail, password: savedPassword });
+          } catch (e) {
+            // 자동 로그인 실패 시 저장된 정보 삭제
+            await AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY);
+            await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+            setRememberMe(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load saved credentials', e);
+    } finally {
+      setIsAutoLoggingIn(false);
+    }
+  };
+
+  const saveCredentials = async (email: string, password: string) => {
+    try {
+      await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+      await AsyncStorage.setItem(REMEMBER_ME_KEY, 'true');
+    } catch (e) {
+      console.error('Failed to save credentials', e);
+    }
+  };
+
+  const clearSavedCredentials = async () => {
+    try {
+      await AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY);
+      await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+    } catch (e) {
+      console.error('Failed to clear credentials', e);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -30,12 +88,31 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await login({ email, password });
+      
+      // 로그인 성공 시 로그인 유지 설정에 따라 처리
+      if (rememberMe) {
+        await saveCredentials(email, password);
+      } else {
+        await clearSavedCredentials();
+      }
     } catch (e) {
       Alert.alert('로그인 실패', '이메일 또는 비밀번호를 확인해주세요.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // 자동 로그인 중 로딩 화면
+  if (isAutoLoggingIn) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.appName}>RepNote</Text>
+          <Text style={styles.loadingText}>로그인 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -45,8 +122,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerContainer}>
-            <Text style={styles.appName}>Exercise Record</Text>
-            <Text style={styles.welcomeText}>환영합니다! 👋</Text>
+            <Text style={styles.appName}>RepNote</Text>
             <Text style={styles.subtitle}>운동 기록을 시작해보세요.</Text>
           </View>
 
@@ -56,6 +132,7 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="example@email.com"
+                placeholderTextColor={Colors.textSecondary + '60'}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -69,11 +146,23 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="비밀번호를 입력하세요"
+                placeholderTextColor={Colors.textSecondary + '60'}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
               />
             </View>
+
+            <TouchableOpacity
+              style={styles.rememberMeContainer}
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Check size={14} color="#fff" strokeWidth={3} />}
+              </View>
+              <Text style={styles.rememberMeText}>로그인 유지하기</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.loginButton, isSubmitting && styles.disabledButton]}
@@ -114,24 +203,23 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   headerContainer: {
-    marginBottom: 40,
+    marginBottom: 48,
     alignItems: 'center',
   },
   appName: {
-    fontSize: 24,
+    fontSize: 56,
     fontWeight: 'bold',
     color: Colors.primary,
-    marginBottom: 8,
-  },
-  welcomeText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: -1,
+    textShadowColor: Colors.primary + '20',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
   subtitle: {
     fontSize: 16,
     color: Colors.textSecondary,
+    fontWeight: '500',
   },
   formContainer: {
     width: '100%',
@@ -153,6 +241,11 @@ const styles = StyleSheet.create({
     color: Colors.text,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   loginButton: {
     backgroundColor: Colors.primary,
@@ -187,6 +280,41 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginTop: 16,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: Colors.text,
+    fontWeight: '500',
   },
 });
 
