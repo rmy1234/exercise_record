@@ -27,28 +27,12 @@ async function bootstrap() {
   );
 
   const port = process.env.PORT || 3000;
-  const host = process.env.HOST || '0.0.0.0';
+  const host = process.env.HOST || '10.2.2.116'; // 기본 IP 주소 설정
   await app.listen(port, host);
   
-  // 로컬 IP 주소 가져오기
-  const networkInterfaces = os.networkInterfaces();
-  let localIp = 'localhost';
-  for (const interfaceName in networkInterfaces) {
-    const interfaces = networkInterfaces[interfaceName];
-    if (interfaces) {
-      for (const iface of interfaces) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-          localIp = iface.address;
-          break;
-        }
-      }
-      if (localIp !== 'localhost') break;
-    }
-  }
-  
   console.log(`Application is running on:`);
-  console.log(`  - Local:   http://localhost:${port}`);
-  console.log(`  - Network: http://${localIp}:${port}`);
+  console.log(`  - http://${host}:${port}`);
+  console.log(`  - http://localhost:${port} (if accessible)`);
 }
 bootstrap();
 

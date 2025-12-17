@@ -469,10 +469,6 @@ export default function StatsScreen() {
                   onPress={() => toggleMetric('fat')} 
                 />
               </View>
-              <TouchableOpacity style={styles.addButton} onPress={handleAddData}>
-                <Plus color="#fff" size={20} />
-                <Text style={styles.addButtonText}>기록</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.chartContainer}>
@@ -487,6 +483,10 @@ export default function StatsScreen() {
               ) : (
                 <>
                   <View style={styles.chartHeader}>
+                    <TouchableOpacity style={styles.addButton} onPress={handleAddData}>
+                      <Plus color="#fff" size={20} />
+                      <Text style={styles.addButtonText}>기록</Text>
+                    </TouchableOpacity>
                     <View style={styles.periodFilterContainer}>
                       <TouchableOpacity
                         style={[styles.periodFilterButton, bodyFilter === 'week' && styles.periodFilterButtonActive]}
@@ -717,6 +717,7 @@ export default function StatsScreen() {
               {exerciseChartData ? (
                 <>
                   <View style={styles.chartHeader}>
+                    <View />
                     <View style={styles.periodFilterContainer}>
                       <TouchableOpacity
                         style={[styles.periodFilterButton, exerciseFilter === 'week' && styles.periodFilterButtonActive]}
@@ -1063,7 +1064,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   categoryDropdownWrapper: {
-    width: '30%', // 카테고리는 좁게
+    width: '32%', // 카테고리는 좁게
   },
   exerciseDropdownWrapper: {
     flex: 1, // 운동명은 넓게
@@ -1195,7 +1196,7 @@ const styles = StyleSheet.create({
   },
   chartHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
