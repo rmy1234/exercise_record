@@ -139,5 +139,21 @@ export class RecordsService {
       },
     });
   }
+
+  async updateComplete(id: string, isCompleted: boolean) {
+    return this.prisma.record.update({
+      where: { id },
+      data: { 
+        isCompleted,
+        completedAt: isCompleted ? new Date() : null,
+      },
+      include: {
+        exercise: true,
+        sets: {
+          orderBy: { setNumber: 'asc' },
+        },
+      },
+    });
+  }
 }
 

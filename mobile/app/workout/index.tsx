@@ -266,17 +266,17 @@ export default function WorkoutScreen() {
       // 오늘 운동 완료 상태 저장
       const today = new Date().toISOString().split('T')[0];
       AsyncStorage.setItem(`workout_completed_${today}`, 'true').catch(console.error);
-      // 서버에도 완료 상태 저장 (주간 카운트용)
+      // 서버에도 완료 상태 저장(주간 카운트용)
       if (user?.id) {
         workoutDaysApi.complete(user.id, today).catch(console.error);
       }
     } else if (isLastSet) {
-      // 다음 운동으로
+      // 다음 운동으로 (운동과 운동 사이에는 휴식 없음)
       updatedExercises[currentExerciseIndex].completed = true;
       setExercises(updatedExercises);
-      startRestTimer(currentSet.restTime);
+      handleNextSet(); // 바로 다음 운동으로 이동
     } else {
-      // 다음 세트로 (휴식 시작)
+      // 다음 세트로 (세트 사이에만 휴식 시작)
       startRestTimer(currentSet.restTime);
     }
   };
@@ -384,7 +384,7 @@ export default function WorkoutScreen() {
           <View style={styles.trophyContainer}>
             <Trophy color={Colors.warning} size={80} />
           </View>
-          <Text style={styles.completedTitle}>운동 완료! 🎉</Text>
+          <Text style={styles.completedTitle}>운동 완료! 💪</Text>
           <Text style={styles.completedSubtitle}>오늘도 수고하셨습니다!</Text>
 
           <View style={styles.summaryCard}>
@@ -1105,4 +1105,3 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 });
-

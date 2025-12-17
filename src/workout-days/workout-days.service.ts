@@ -24,6 +24,23 @@ export class WorkoutDaysService {
 
   async markCompleted(userId: string, date: string) {
     const day = this.toStartOfDayUtc(date);
+    const endDay = this.toEndOfDayUtc(date);
+    
+    // 해당 날짜의 모든 레코드를 완료 상태로 설정
+    await this.prisma.record.updateMany({
+      where: {
+        userId,
+        date: {
+          gte: day,
+          lte: endDay,
+        },
+      },
+      data: {
+        isCompleted: true,
+        completedAt: new Date(),
+      },
+    });
+    
     return this.prisma.workoutDay.upsert({
       where: { userId_date: { userId, date: day } },
       update: { isCompleted: true, completedAt: new Date() },

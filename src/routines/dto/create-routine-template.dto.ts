@@ -1,5 +1,17 @@
-import { IsString, IsArray, ValidateNested, IsNotEmpty } from 'class-validator';
+import { IsString, IsArray, ValidateNested, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
+
+class SetDto {
+  @IsNumber()
+  weight: number;
+
+  @IsNumber()
+  reps: number;
+
+  @IsOptional()
+  @IsNumber()
+  restTime?: number;
+}
 
 class ExerciseDto {
   @IsString()
@@ -13,6 +25,12 @@ class ExerciseDto {
   @IsString()
   @IsNotEmpty()
   category: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SetDto)
+  sets?: SetDto[];
 }
 
 export class CreateRoutineTemplateDto {

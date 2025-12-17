@@ -122,12 +122,14 @@ export default function StatsScreen() {
   const fetchExercises = async () => {
     try {
       const data = await exercisesApi.getAll();
-      // 기록이 있는 운동만 필터링
+      // 완료된 기록이 있는 운동만 필터링
       if (user) {
         const exercisesWithRecords: Exercise[] = [];
         for (const exercise of data) {
           const records = await recordsApi.getByExercise(user.id, exercise.id);
-          if (records.length > 0) {
+          // 완료된 기록이 있는 운동만 추가
+          const completedRecords = records.filter(r => r.isCompleted);
+          if (completedRecords.length > 0) {
             exercisesWithRecords.push(exercise);
           }
         }
@@ -167,7 +169,10 @@ export default function StatsScreen() {
       // 날짜별로 그룹화하고 최고 기록 계산
       const dateMap = new Map<string, ExerciseRecordData>();
       
-      records.forEach(record => {
+      // 완료된 기록만 필터링
+      const completedRecords = records.filter(record => record.isCompleted);
+      
+      completedRecords.forEach(record => {
         const fullDate = new Date(record.date);
         const month = String(fullDate.getMonth() + 1).padStart(2, '0');
         const day = String(fullDate.getDate()).padStart(2, '0');
@@ -471,7 +476,15 @@ export default function StatsScreen() {
             </View>
 
             <View style={styles.chartContainer}>
-              {!isNoBodyData ? (
+              {isNoBodyData ? (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>표시할 데이터 종류를 선택해주세요</Text>
+                </View>
+              ) : filteredBodyData.length === 0 ? (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>기록이 없습니다</Text>
+                </View>
+              ) : (
                 <>
                   <View style={styles.chartHeader}>
                     <View style={styles.periodFilterContainer}>
@@ -571,10 +584,6 @@ export default function StatsScreen() {
                     </ScrollView>
                   </View>
                 </>
-              ) : (
-                <View style={styles.noDataContainer}>
-                  <Text style={styles.noDataText}>표시할 데이터 종류를 선택해주세요</Text>
-                </View>
               )}
             </View>
 

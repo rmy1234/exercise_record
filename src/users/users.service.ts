@@ -10,27 +10,35 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
-    // 이메일 중복 확인
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: createUserDto.email },
-    });
+    try {
+      // 이메일 중복 확인
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: createUserDto.email },
+      });
 
-    if (existingUser) {
-      throw new ConflictException('이미 존재하는 이메일입니다.');
+      if (existingUser) {
+        throw new ConflictException('이미 존재하는 이메일입니다.');
+      }
+
+      // 비밀번호 해싱
+      const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+      const user = await this.prisma.user.create({
+        data: {
+          ...createUserDto,
+          password: hashedPassword,
+        },
+      });
+
+      const { password, ...result } = user;
+      return result;
+    } catch (error) {
+      console.error('User creation error:', error);
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new Error(`사용자 생성 중 오류가 발생했습니다: ${error.message}`);
     }
-
-    // 비밀번호 해싱
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-
-    const user = await this.prisma.user.create({
-      data: {
-        ...createUserDto,
-        password: hashedPassword,
-      },
-    });
-
-    const { password, ...result } = user;
-    return result;
   }
 
   async login(loginUserDto: LoginUserDto) {

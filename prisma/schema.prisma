@@ -32,13 +32,12 @@ model User {
 model PR {
   id        String   @id @default(cuid())
   userId    String
-  squat     Float?   // 스쿼트 PR (kg)
-  bench     Float?   // 벤치프레스 PR (kg)
-  deadlift  Float?   // 데드리프트 PR (kg)
+  squat     Float?
+  bench     Float?
+  deadlift  Float?
   date      DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("prs")
@@ -48,15 +47,14 @@ model Inbody {
   id             String   @id @default(cuid())
   userId         String
   date           DateTime @default(now())
-  weight         Float    // 체중 (kg)
-  skeletalMuscle Float    // 골격근량 (kg)
-  bodyFat        Float?   // 체지방량 (kg)
-  bodyFatPercent Float?   // 체지방률 (%)
-  bmi            Float?   // BMI
-  basalMetabolic Float?   // 기초대사량 (kcal)
+  weight         Float
+  skeletalMuscle Float
+  bodyFat        Float?
+  bodyFatPercent Float?
+  bmi            Float?
+  basalMetabolic Float?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("inbody")
@@ -72,14 +70,16 @@ model Exercise {
 }
 
 model Record {
-  id         String      @id @default(cuid())
-  userId     String
-  exerciseId String
-  date       DateTime
-  order      Int         @default(0) // 운동 순서
-  sets       RecordSet[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  userId      String
+  exerciseId  String
+  date        DateTime
+  order       Int         @default(0) // 운동 순서
+  isCompleted Boolean     @default(false) // 운동 완료 여부
+  completedAt DateTime?   // 완료 시간
+  sets        RecordSet[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   exercise   Exercise    @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
@@ -105,13 +105,11 @@ model RecordSet {
 model WorkoutDay {
   id          String    @id @default(cuid())
   userId      String
-  // 날짜 단위(UTC 00:00:00)로 저장
   date        DateTime
   isCompleted Boolean   @default(false)
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
@@ -122,10 +120,9 @@ model RoutineTemplate {
   id        String   @id @default(cuid())
   userId    String
   name      String
-  exercises Json     // [{ exerciseId, exerciseName, category }]
+  exercises Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("routine_templates")

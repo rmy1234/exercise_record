@@ -62,12 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (data: CreateUserRequest) => {
     try {
-      const user = await usersApi.signup(data);
-      // 회원가입 후 자동 로그인 처리할지, 로그인 페이지로 보낼지 결정
-      // 여기서는 바로 로그인 처리
-      setUser(user);
-      await AsyncStorage.setItem('user', JSON.stringify(user));
-      router.replace('/(tabs)');
+      await usersApi.signup(data);
+      // 회원가입 성공 후 로그인 페이지로 이동
+      router.replace('/auth/login');
     } catch (e) {
       throw e;
     }

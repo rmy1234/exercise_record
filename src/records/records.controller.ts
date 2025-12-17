@@ -51,5 +51,10 @@ export class RecordsController {
   updateOrder(@Param('id') id: string, @Body('order') order: number) {
     return this.recordsService.updateOrder(id, order);
   }
+
+  @Patch(':id/complete')
+  complete(@Param('id') id: string, @Body('isCompleted') isCompleted: boolean) {
+    return this.recordsService.updateComplete(id, isCompleted);
+  }
 }
 

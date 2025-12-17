@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -60,31 +59,18 @@ const EXERCISES = {
 };
 
 async function main() {
-  const hashedPassword = await bcrypt.hash('password123', 10);
-
-  // 사용자 생성
-  const user = await prisma.user.upsert({
-    where: { email: 'test@example.com' },
-    update: {},
-    create: {
-      email: 'test@example.com',
-      password: hashedPassword,
-      name: '홍길동',
-      gender: 'MALE',
-      age: 30,
-      height: 175.5,
-      weight: 75.0,
-    },
-  });
-
-  console.log('Created user:', user);
-
   // 운동 데이터 생성
   console.log('Seeding exercises...');
   for (const [category, names] of Object.entries(EXERCISES)) {
     for (const name of names) {
-      await prisma.exercise.create({
-        data: {
+      await prisma.exercise.upsert({
+        where: { 
+          // name과 category 조합으로 중복 확인
+          id: `${category}_${name}`.replace(/\s/g, '_').toLowerCase(),
+        },
+        update: {},
+        create: {
+          id: `${category}_${name}`.replace(/\s/g, '_').toLowerCase(),
           name,
           category,
         },
@@ -93,51 +79,7 @@ async function main() {
   }
   console.log('Exercises seeded.');
 
-  // PR 생성 (기존 유지)
-  await prisma.pR.create({
-    data: {
-      userId: user.id,
-      squat: 120.0,
-      bench: 100.0,
-      deadlift: 150.0,
-    },
-  });
-
-  // 인바디 데이터 (기존 유지)
-  await prisma.inbody.createMany({
-    data: [
-      {
-        userId: user.id,
-        date: new Date('2024-01-01'),
-        weight: 75.0,
-        skeletalMuscle: 35.0,
-        bodyFat: 15.0,
-        bodyFatPercent: 20.0,
-        bmi: 24.4,
-        basalMetabolic: 1800,
-      },
-      {
-        userId: user.id,
-        date: new Date('2024-01-15'),
-        weight: 74.5,
-        skeletalMuscle: 35.5,
-        bodyFat: 14.5,
-        bodyFatPercent: 19.5,
-        bmi: 24.2,
-        basalMetabolic: 1820,
-      },
-      {
-        userId: user.id,
-        date: new Date('2024-02-01'),
-        weight: 74.0,
-        skeletalMuscle: 36.0,
-        bodyFat: 14.0,
-        bodyFatPercent: 18.9,
-        bmi: 24.1,
-        basalMetabolic: 1830,
-      },
-    ],
-  });
+  console.log('Seed completed successfully!');
 }
 
 main()

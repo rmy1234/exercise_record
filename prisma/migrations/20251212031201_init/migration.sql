@@ -1,15 +1,22 @@
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "gender" TEXT NOT NULL,
     "age" INTEGER NOT NULL,
     "height" DOUBLE PRECISION NOT NULL,
     "weight" DOUBLE PRECISION NOT NULL,
+    "profileImage" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateTable
 CREATE TABLE "routines" (
@@ -61,7 +68,6 @@ CREATE TABLE "exercises" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "category" TEXT NOT NULL,
-    "isFavorite" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "exercises_pkey" PRIMARY KEY ("id")
 );
@@ -72,6 +78,9 @@ CREATE TABLE "records" (
     "userId" TEXT NOT NULL,
     "exerciseId" TEXT NOT NULL,
     "date" TIMESTAMP(3) NOT NULL,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "isCompleted" BOOLEAN NOT NULL DEFAULT false,
+    "completedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -86,6 +95,7 @@ CREATE TABLE "record_sets" (
     "weight" DOUBLE PRECISION NOT NULL,
     "reps" INTEGER NOT NULL,
     "rpe" DOUBLE PRECISION,
+    "restTime" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "record_sets_pkey" PRIMARY KEY ("id")
@@ -108,3 +118,37 @@ ALTER TABLE "records" ADD CONSTRAINT "records_exerciseId_fkey" FOREIGN KEY ("exe
 
 -- AddForeignKey
 ALTER TABLE "record_sets" ADD CONSTRAINT "record_sets_recordId_fkey" FOREIGN KEY ("recordId") REFERENCES "records"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE "workout_days" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL,
+    "isCompleted" BOOLEAN NOT NULL DEFAULT false,
+    "completedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "workout_days_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "routine_templates" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "exercises" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "routine_templates_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "workout_days_userId_date_key" ON "workout_days"("userId", "date");
+
+-- AddForeignKey
+ALTER TABLE "workout_days" ADD CONSTRAINT "workout_days_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "routine_templates" ADD CONSTRAINT "routine_templates_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

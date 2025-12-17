@@ -188,6 +188,11 @@ export const recordsApi = {
     const response = await api.patch(`/records/${recordId}/order`, { order });
     return response.data;
   },
+
+  updateComplete: async (recordId: string, isCompleted: boolean): Promise<Record> => {
+    const response = await api.patch<Record>(`/records/${recordId}/complete`, { isCompleted });
+    return response.data;
+  },
 };
 
 // WorkoutDays API (운동 완료 여부/주간 카운트용)

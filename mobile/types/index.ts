@@ -114,6 +114,8 @@ export interface Record {
   userId: string;
   exerciseId: string;
   date: string;
+  isCompleted: boolean; // 운동 완료 여부
+  completedAt?: string; // 완료 시간
   sets: RecordSet[];
   createdAt: string;
   updatedAt: string;
@@ -139,6 +141,11 @@ export interface RoutineTemplate {
     exerciseId: string;
     exerciseName: string;
     category: string;
+    sets?: {
+      weight: number;
+      reps: number;
+      restTime?: number;
+    }[];
   }[];
   createdAt: string;
 }
@@ -149,5 +156,10 @@ export interface CreateRoutineTemplateRequest {
     exerciseId: string;
     exerciseName: string;
     category: string;
+    sets?: {
+      weight: number;
+      reps: number;
+      restTime?: number;
+    }[];
   }[];
 }

@@ -6,8 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Dumbbell, TrendingUp, Calendar, ArrowUp, Check, X, ChevronRight, ListOrdered } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
-import { recordsApi, workoutDaysApi } from '../../services/api';
-import { Record, RoutineTemplate } from '../../types';
+import { recordsApi, workoutDaysApi, prsApi } from '../../services/api';
+import { Record, RoutineTemplate, PR } from '../../types';
 import { routineStorage } from '../../services/routineStorage';
 
 export default function HomeScreen() {
@@ -20,6 +20,7 @@ export default function HomeScreen() {
   const [isWorkoutCompleted, setIsWorkoutCompleted] = useState(false);
   const [routineModalVisible, setRoutineModalVisible] = useState(false);
   const [routines, setRoutines] = useState<RoutineTemplate[]>([]);
+  const [latestPR, setLatestPR] = useState<PR | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -121,6 +122,17 @@ export default function HomeScreen() {
     }
   }, [user]);
 
+  const fetchLatestPR = useCallback(async () => {
+    if (!user) return;
+    try {
+      const pr = await prsApi.getLatest(user.id);
+      setLatestPR(pr);
+    } catch (e) {
+      console.error('Failed to fetch PR', e);
+      setLatestPR(null);
+    }
+  }, [user]);
+
   const handleSelectRoutine = async (routine: RoutineTemplate) => {
     if (!user) return;
     
@@ -129,18 +141,35 @@ export default function HomeScreen() {
       
       // 루틴의 모든 운동을 오늘 날짜에 추가
       for (const exercise of routine.exercises) {
-        await recordsApi.create({
+        const record = await recordsApi.create({
           userId: user.id,
           exerciseId: exercise.exerciseId,
           date: today,
         });
+        
+        // 세트 정보가 있으면 함께 생성
+        if (exercise.sets && exercise.sets.length > 0) {
+          for (let i = 0; i < exercise.sets.length; i++) {
+            const set = exercise.sets[i];
+            await recordsApi.addSet(record.id, {
+              setNumber: i + 1,
+              weight: set.weight,
+              reps: set.reps,
+              restTime: set.restTime,
+            });
+          }
+        }
+        
+        // 루틴 불러오기는 계획 설정이므로 완료 상태를 false로 설정 (모든 레코드)
+        await recordsApi.updateComplete(record.id, false);
       }
       
       // 데이터 새로고침
       await fetchToday();
       setRoutineModalVisible(false);
       
-      Alert.alert('성공', `${routine.name} 루틴이 추가되었습니다.`);
+      // 운동 수행 페이지로 이동
+      router.push('/workout');
     } catch (e) {
       console.error('Failed to add routine', e);
       Alert.alert('오류', '루틴 추가에 실패했습니다.');
@@ -155,7 +184,8 @@ export default function HomeScreen() {
       fetchWeeklyWorkoutDays();
       checkWorkoutCompleted();
       fetchRoutines();
-    }, [fetchToday, fetchWeeklyWorkoutDays, checkWorkoutCompleted, fetchRoutines])
+      fetchLatestPR();
+    }, [fetchToday, fetchWeeklyWorkoutDays, checkWorkoutCompleted, fetchRoutines, fetchLatestPR])
   );
 
   const formattedDate = currentDate.toLocaleDateString('ko-KR', {
@@ -186,21 +216,21 @@ export default function HomeScreen() {
               <View style={styles.prGridItem}>
                 <Text style={styles.prLabel}>Squat</Text>
                 <View style={styles.prValueRow}>
-                  <Text style={styles.prValue}>120</Text>
+                  <Text style={styles.prValue}>{latestPR?.squat || 0}</Text>
                   <Text style={styles.prUnit}>kg</Text>
                 </View>
               </View>
               <View style={styles.prGridItem}>
                 <Text style={styles.prLabel}>Bench</Text>
                 <View style={styles.prValueRow}>
-                  <Text style={styles.prValue}>100</Text>
+                  <Text style={styles.prValue}>{latestPR?.bench || 0}</Text>
                   <Text style={styles.prUnit}>kg</Text>
                 </View>
               </View>
               <View style={styles.prGridItem}>
                 <Text style={styles.prLabel}>Deadlift</Text>
                 <View style={styles.prValueRow}>
-                  <Text style={styles.prValue}>150</Text>
+                  <Text style={styles.prValue}>{latestPR?.deadlift || 0}</Text>
                   <Text style={styles.prUnit}>kg</Text>
                 </View>
               </View>
@@ -209,7 +239,9 @@ export default function HomeScreen() {
             <View style={styles.prTotalRow}>
               <Text style={styles.prTotalLabel}>Total</Text>
               <View style={styles.prTotalValueRow}>
-                <Text style={styles.prTotalValue}>370</Text>
+                <Text style={styles.prTotalValue}>
+                  {(latestPR?.squat || 0) + (latestPR?.bench || 0) + (latestPR?.deadlift || 0)}
+                </Text>
                 <Text style={styles.prTotalUnit}>kg</Text>
               </View>
             </View>
