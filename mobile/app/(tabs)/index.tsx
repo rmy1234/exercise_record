@@ -18,8 +18,8 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [weeklyWorkoutDays, setWeeklyWorkoutDays] = useState(0);
   const [isWorkoutCompleted, setIsWorkoutCompleted] = useState(false);
-  const [routineModalVisible, setRoutineModalVisible] = useState(false);
-  const [routines, setRoutines] = useState<RoutineTemplate[]>([]);
+  // const [routineModalVisible, setRoutineModalVisible] = useState(false);
+  // const [routines, setRoutines] = useState<RoutineTemplate[]>([]);
   const [latestPR, setLatestPR] = useState<PR | null>(null);
   const [prModalVisible, setPrModalVisible] = useState(false);
   const [prInput, setPrInput] = useState({ squat: '', bench: '', deadlift: '' });
@@ -114,15 +114,15 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  const fetchRoutines = useCallback(async () => {
-    if (!user) return;
-    try {
-      const data = await routineStorage.getAll(user.id);
-      setRoutines(data);
-    } catch (e) {
-      console.error('Failed to fetch routines', e);
-    }
-  }, [user]);
+  // const fetchRoutines = useCallback(async () => {
+  //   if (!user) return;
+  //   try {
+  //     const data = await routineStorage.getAll(user.id);
+  //     setRoutines(data);
+  //   } catch (e) {
+  //     console.error('Failed to fetch routines', e);
+  //   }
+  // }, [user]);
 
   const fetchLatestPR = useCallback(async () => {
     if (!user) return;
@@ -135,48 +135,48 @@ export default function HomeScreen() {
     }
   }, [user]);
 
-  const handleSelectRoutine = async (routine: RoutineTemplate) => {
-    if (!user) return;
-    
-    try {
-      const today = todayKey;
-      
-      // 루틴의 모든 운동을 오늘 날짜에 추가
-      for (const exercise of routine.exercises) {
-        const record = await recordsApi.create({
-          userId: user.id,
-          exerciseId: exercise.exerciseId,
-          date: today,
-        });
-        
-        // 세트 정보가 있으면 함께 생성
-        if (exercise.sets && exercise.sets.length > 0) {
-          for (let i = 0; i < exercise.sets.length; i++) {
-            const set = exercise.sets[i];
-            await recordsApi.addSet(record.id, {
-              setNumber: i + 1,
-              weight: set.weight,
-              reps: set.reps,
-              restTime: set.restTime,
-            });
-          }
-        }
-        
-        // 루틴 불러오기는 계획 설정이므로 완료 상태를 false로 설정 (모든 레코드)
-        await recordsApi.updateComplete(record.id, false);
-      }
-      
-      // 데이터 새로고침
-      await fetchToday();
-      setRoutineModalVisible(false);
-      
-      // 운동 수행 페이지로 이동
-      router.push('/workout');
-    } catch (e) {
-      console.error('Failed to add routine', e);
-      Alert.alert('오류', '루틴 추가에 실패했습니다.');
-    }
-  };
+  // const handleSelectRoutine = async (routine: RoutineTemplate) => {
+  //   if (!user) return;
+  //   
+  //   try {
+  //     const today = todayKey;
+  //     
+  //     // 루틴의 모든 운동을 오늘 날짜에 추가
+  //     for (const exercise of routine.exercises) {
+  //       const record = await recordsApi.create({
+  //         userId: user.id,
+  //         exerciseId: exercise.exerciseId,
+  //         date: today,
+  //       });
+  //       
+  //       // 세트 정보가 있으면 함께 생성
+  //       if (exercise.sets && exercise.sets.length > 0) {
+  //         for (let i = 0; i < exercise.sets.length; i++) {
+  //           const set = exercise.sets[i];
+  //           await recordsApi.addSet(record.id, {
+  //             setNumber: i + 1,
+  //             weight: set.weight,
+  //             reps: set.reps,
+  //             restTime: set.restTime,
+  //           });
+  //         }
+  //       }
+  //       
+  //       // 루틴 불러오기는 계획 설정이므로 완료 상태를 false로 설정 (모든 레코드)
+  //       await recordsApi.updateComplete(record.id, false);
+  //     }
+  //     
+  //     // 데이터 새로고침
+  //     await fetchToday();
+  //     setRoutineModalVisible(false);
+  //     
+  //     // 운동 수행 페이지로 이동
+  //     router.push('/workout');
+  //   } catch (e) {
+  //     console.error('Failed to add routine', e);
+  //     Alert.alert('오류', '루틴 추가에 실패했습니다.');
+  //   }
+  // };
 
 
   // 화면이 포커스될 때마다 데이터 새로고침
@@ -185,9 +185,9 @@ export default function HomeScreen() {
       fetchToday();
       fetchWeeklyWorkoutDays();
       checkWorkoutCompleted();
-      fetchRoutines();
+      // fetchRoutines();
       fetchLatestPR();
-    }, [fetchToday, fetchWeeklyWorkoutDays, checkWorkoutCompleted, fetchRoutines, fetchLatestPR])
+    }, [fetchToday, fetchWeeklyWorkoutDays, checkWorkoutCompleted, fetchLatestPR])
   );
 
   const formattedDate = currentDate.toLocaleDateString('ko-KR', {
@@ -372,18 +372,10 @@ export default function HomeScreen() {
                 })()}
               </View>
               {isWorkoutCompleted ? (
-                <View style={styles.completedButtonsRow}>
-                  <View style={styles.completedBadge}>
-                    <Check color={Colors.success} size={20} />
-                    <Text style={styles.completedBadgeText}>운동 완료</Text>
-                  </View>
-                  <TouchableOpacity 
-                    style={styles.anotherWorkoutButton}
-                    onPress={() => setRoutineModalVisible(true)}
-                  >
-                    <Dumbbell color="#fff" size={18} />
-                    <Text style={styles.anotherWorkoutButtonText}>다른 운동 시작하기</Text>
-                  </TouchableOpacity>
+                // 운동 완료 상태 - 다른 운동 시작하기 기능은 임시 주석처리됨
+                <View style={styles.completedBadge}>
+                  <Check color={Colors.success} size={20} />
+                  <Text style={styles.completedBadgeText}>운동 완료</Text>
                 </View>
               ) : (
                 <TouchableOpacity 
@@ -406,8 +398,8 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* 루틴 선택 모달 */}
-      <Modal
+      {/* 루틴 선택 모달 - 임시 주석처리 */}
+      {/* <Modal
         animationType="slide"
         transparent={true}
         visible={routineModalVisible}
@@ -432,7 +424,7 @@ export default function HomeScreen() {
                     new Set(item.exercises.map(e => e.category))
                   );
                   const categoryText = categories.join(' & ');
-                  
+
                   return (
                     <TouchableOpacity
                       style={styles.routineSelectItem}
@@ -467,7 +459,7 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
-      </Modal>
+      </Modal> */}
 
       {/* 3대 중량 입력 모달 */}
       <Modal
