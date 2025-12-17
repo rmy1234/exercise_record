@@ -384,7 +384,7 @@ export default function WorkoutScreen() {
           <View style={styles.trophyContainer}>
             <Trophy color={Colors.warning} size={80} />
           </View>
-          <Text style={styles.completedTitle}>운동 완료! 💪</Text>
+          <Text style={styles.completedTitle}>운동 완료!</Text>
           <Text style={styles.completedSubtitle}>오늘도 수고하셨습니다!</Text>
 
           <View style={styles.summaryCard}>

@@ -80,6 +80,10 @@ export default function RoutinesScreen() {
   
   // 루틴 불러오기 모달
   const [loadRoutineModalVisible, setLoadRoutineModalVisible] = useState(false);
+  
+  // 전체 선택 및 삭제 상태
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
 
   useEffect(() => {
     // 오늘 날짜로 초기화
@@ -204,12 +208,28 @@ export default function RoutinesScreen() {
     if (!user || !selectedDate) return;
 
     try {
-      // 운동을 루틴에 추가 (세트는 비어있음)
-      await recordsApi.create({
+      // 운동을 루틴에 추가
+      const record = await recordsApi.create({
         userId: user.id,
         exerciseId: exercise.id,
         date: selectedDate,
       });
+      
+      // 저장된 세트 정보가 있으면 자동으로 추가
+      const savedSets = await loadSavedSets(exercise.id);
+      if (savedSets && savedSets.length > 0) {
+        for (let i = 0; i < savedSets.length; i++) {
+          const set = savedSets[i];
+          await recordsApi.addSet(record.id, {
+            setNumber: i + 1,
+            weight: set.weight,
+            reps: set.reps,
+            restTime: set.restTime,
+          });
+        }
+        // 운동 추가는 계획 설정이므로 완료 상태를 false로 설정
+        await recordsApi.updateComplete(record.id, false);
+      }
       
       // 루틴 목록 새로고침
       await fetchDailyRecords(selectedDate);
@@ -276,10 +296,10 @@ export default function RoutinesScreen() {
     setSetsModalVisible(true);
   };
 
-  const openRoutineExerciseSetModal = (exercise: { exerciseId: string; exerciseName: string; category: string; sets?: { weight: number; reps: number; restTime?: number; }[] }) => {
+  const openRoutineExerciseSetModal = async (exercise: { exerciseId: string; exerciseName: string; category: string; sets?: { weight: number; reps: number; restTime?: number; }[] }) => {
     setSelectedRecord(null);
     setEditingRoutineExercise({ exerciseId: exercise.exerciseId, exerciseName: exercise.exerciseName });
-    // 기존 세트가 있으면 불러오기, 없으면 빈 세트 하나 추가
+    // 기존 세트가 있으면 불러오기, 없으면 저장된 세트 정보 불러오기
     if (exercise.sets && exercise.sets.length > 0) {
       setSets(exercise.sets.map(set => ({
         weight: set.weight.toString(),
@@ -287,7 +307,17 @@ export default function RoutinesScreen() {
         restTime: set.restTime ? set.restTime.toString() : '',
       })));
     } else {
-      setSets([{ weight: '', reps: '', restTime: '' }]);
+      // 저장된 세트 정보 불러오기
+      const savedSets = await loadSavedSets(exercise.exerciseId);
+      if (savedSets && savedSets.length > 0) {
+        setSets(savedSets.map(set => ({
+          weight: set.weight.toString(),
+          reps: set.reps.toString(),
+          restTime: set.restTime ? set.restTime.toString() : '',
+        })));
+      } else {
+        setSets([{ weight: '', reps: '', restTime: '' }]);
+      }
     }
     // 루틴 모달을 일시적으로 숨기고 세트 모달 열기
     setRoutineModalVisible(false);
@@ -328,6 +358,71 @@ export default function RoutinesScreen() {
             text: '삭제',
             style: 'destructive',
             onPress: deleteRecord,
+          },
+        ]
+      );
+    }
+  };
+
+  // 전체 선택/해제
+  const handleSelectAll = () => {
+    if (selectedRecordIds.length === dailyRecords.length) {
+      setSelectedRecordIds([]);
+    } else {
+      setSelectedRecordIds(dailyRecords.map(r => r.id));
+    }
+  };
+
+  // 개별 선택/해제
+  const handleToggleRecord = (recordId: string) => {
+    setSelectedRecordIds(prev => 
+      prev.includes(recordId)
+        ? prev.filter(id => id !== recordId)
+        : [...prev, recordId]
+    );
+  };
+
+  // 선택된 항목 일괄 삭제
+  const handleDeleteSelected = async () => {
+    if (selectedRecordIds.length === 0) return;
+
+    const deleteSelected = async () => {
+      try {
+        // 선택된 모든 레코드 삭제
+        await Promise.all(selectedRecordIds.map(id => recordsApi.delete(id)));
+        await fetchDailyRecords(selectedDate);
+        setSelectedRecordIds([]);
+        setIsSelectionMode(false);
+        
+        if (Platform.OS === 'web') {
+          alert(`${selectedRecordIds.length}개의 운동이 삭제되었습니다.`);
+        } else {
+          Alert.alert('성공', `${selectedRecordIds.length}개의 운동이 삭제되었습니다.`);
+        }
+      } catch (e) {
+        console.error('Delete selected records error', e);
+        if (Platform.OS === 'web') {
+          alert('운동 삭제에 실패했습니다.');
+        } else {
+          Alert.alert('오류', '운동 삭제에 실패했습니다.');
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`선택한 ${selectedRecordIds.length}개의 운동을 삭제하시겠습니까?`)) {
+        deleteSelected();
+      }
+    } else {
+      Alert.alert(
+        '운동 삭제',
+        `선택한 ${selectedRecordIds.length}개의 운동을 삭제하시겠습니까?`,
+        [
+          { text: '취소', style: 'cancel' },
+          {
+            text: '삭제',
+            style: 'destructive',
+            onPress: deleteSelected,
           },
         ]
       );
@@ -385,35 +480,45 @@ export default function RoutinesScreen() {
   const handleSaveSets = async () => {
     // 루틴 운동의 세트 저장
     if (editingRoutineExercise) {
-      const validSets = sets
-        .filter(set => set.weight && set.reps)
-        .map(set => ({
-          weight: parseFloat(set.weight),
-          reps: parseInt(set.reps, 10),
-          restTime: set.restTime ? parseInt(set.restTime, 10) : undefined,
-        }));
-      
-      setSelectedExercisesForRoutine(prev =>
-        prev.map(e =>
-          e.exerciseId === editingRoutineExercise.exerciseId
-            ? { ...e, sets: validSets.length > 0 ? validSets : undefined }
-            : e
-        )
-      );
-      
-      setSetsModalVisible(false);
-      setEditingRoutineExercise(null);
-      // 루틴 모달 다시 열기
-      setRoutineModalVisible(true);
-      // 스크롤 위치 복원
-      setTimeout(() => {
-        if (routineModalScrollRef.current) {
-          routineModalScrollRef.current.scrollTo({
-            y: routineModalScrollPosition.current,
-            animated: false,
-          });
+      try {
+        const validSets = sets
+          .filter(set => set.weight && set.reps)
+          .map(set => ({
+            weight: parseFloat(set.weight),
+            reps: parseInt(set.reps, 10),
+            restTime: set.restTime ? parseInt(set.restTime, 10) : undefined,
+          }));
+        
+        // 세트 정보를 AsyncStorage에 저장 (가장 최근 정보로 덮어쓰기)
+        if (validSets.length > 0 && editingRoutineExercise.exerciseId) {
+          await saveSets(editingRoutineExercise.exerciseId, validSets);
         }
-      }, 100);
+        
+        setSelectedExercisesForRoutine(prev =>
+          prev.map(e =>
+            e.exerciseId === editingRoutineExercise.exerciseId
+              ? { ...e, sets: validSets.length > 0 ? validSets : undefined }
+              : e
+          )
+        );
+        
+        setSetsModalVisible(false);
+        setEditingRoutineExercise(null);
+        // 루틴 모달 다시 열기
+        setRoutineModalVisible(true);
+        // 스크롤 위치 복원
+        setTimeout(() => {
+          if (routineModalScrollRef.current) {
+            routineModalScrollRef.current.scrollTo({
+              y: routineModalScrollPosition.current,
+              animated: false,
+            });
+          }
+        }, 100);
+      } catch (e) {
+        console.error('Failed to save sets for routine exercise', e);
+        Alert.alert('오류', '세트 저장에 실패했습니다.');
+      }
       return;
     }
 
@@ -547,17 +652,21 @@ export default function RoutinesScreen() {
     setRoutineModalVisible(true);
   };
 
-  const handleRoutineExerciseSelect = (exercise: Exercise) => {
+  const handleRoutineExerciseSelect = async (exercise: Exercise) => {
     const exists = selectedExercisesForRoutine.find(e => e.exerciseId === exercise.id);
     if (exists) {
       // 이미 선택된 운동은 제거
       setSelectedExercisesForRoutine(prev => prev.filter(e => e.exerciseId !== exercise.id));
     } else {
-      // 새 운동 추가
+      // 저장된 세트 정보 불러오기
+      const savedSets = await loadSavedSets(exercise.id);
+      
+      // 새 운동 추가 (저장된 세트 정보가 있으면 포함)
       setSelectedExercisesForRoutine(prev => [...prev, {
         exerciseId: exercise.id,
         exerciseName: exercise.name,
         category: exercise.category,
+        sets: savedSets && savedSets.length > 0 ? savedSets : undefined,
       }]);
     }
   };
@@ -660,6 +769,20 @@ export default function RoutinesScreen() {
               reps: set.reps,
               restTime: set.restTime,
             });
+          }
+        } else {
+          // 루틴에 세트 정보가 없으면 저장된 세트 정보가 있으면 자동으로 추가
+          const savedSets = await loadSavedSets(exercise.exerciseId);
+          if (savedSets && savedSets.length > 0) {
+            for (let i = 0; i < savedSets.length; i++) {
+              const set = savedSets[i];
+              await recordsApi.addSet(record.id, {
+                setNumber: i + 1,
+                weight: set.weight,
+                reps: set.reps,
+                restTime: set.restTime,
+              });
+            }
           }
         }
         
@@ -790,14 +913,65 @@ export default function RoutinesScreen() {
           <View style={styles.routinesHeaderContainer}>
             <Text style={styles.dateTitle}>{selectedDate} 루틴</Text>
             <View style={styles.headerButtons}>
-              <TouchableOpacity style={styles.loadRoutineButton} onPress={() => setLoadRoutineModalVisible(true)}>
-                <ListOrdered color="#fff" size={20} />
-                <Text style={styles.loadRoutineButtonText}>루틴 불러오기</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
-                <Plus color="#fff" size={20} />
-                <Text style={styles.addButtonText}>운동 추가</Text>
-              </TouchableOpacity>
+              {isSelectionMode ? (
+                <>
+                  <TouchableOpacity 
+                    style={styles.selectAllButton} 
+                    onPress={handleSelectAll}
+                  >
+                    <Check 
+                      color={selectedRecordIds.length === dailyRecords.length ? Colors.primary : Colors.textSecondary} 
+                      size={20} 
+                    />
+                    <Text style={[
+                      styles.selectAllButtonText,
+                      selectedRecordIds.length === dailyRecords.length && styles.selectAllButtonTextActive
+                    ]}>
+                      전체 선택
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.deleteSelectedButton, selectedRecordIds.length === 0 && styles.deleteSelectedButtonDisabled]} 
+                    onPress={handleDeleteSelected}
+                    disabled={selectedRecordIds.length === 0}
+                  >
+                    <Trash2 color="#fff" size={18} />
+                    <Text style={styles.deleteSelectedButtonText}>
+                      삭제 ({selectedRecordIds.length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.cancelSelectionButton} 
+                    onPress={() => {
+                      setIsSelectionMode(false);
+                      setSelectedRecordIds([]);
+                    }}
+                  >
+                    <X color="#fff" size={18} />
+                    <Text style={styles.cancelSelectionButtonText}>취소</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity style={styles.loadRoutineButton} onPress={() => setLoadRoutineModalVisible(true)}>
+                    <ListOrdered color="#fff" size={20} />
+                    <Text style={styles.loadRoutineButtonText}>루틴 불러오기</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
+                    <Plus color="#fff" size={20} />
+                    <Text style={styles.addButtonText}>운동 추가</Text>
+                  </TouchableOpacity>
+                  {dailyRecords.length > 0 && (
+                    <TouchableOpacity 
+                      style={styles.selectionModeButton} 
+                      onPress={() => setIsSelectionMode(true)}
+                    >
+                      <Check color="#fff" size={18} />
+                      <Text style={styles.selectionModeButtonText}>선택</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
             </View>
           </View>
 
@@ -858,31 +1032,59 @@ export default function RoutinesScreen() {
                                 >
                                   <GripVertical color={Colors.textSecondary} size={20} />
                                 </TouchableOpacity>
-                                <TouchableOpacity 
-                                  style={styles.recordItemContainer}
-                                  onPress={() => !isActive && openSetModal(record)}
-                                  onLongPress={Platform.OS === 'web' ? drag : undefined}
-                                >
-                                  <View style={styles.recordItem}>
-                                    <View style={styles.recordNumber}>
-                                      <Text style={styles.recordNumberText}>{currentIndex + 1}</Text>
+                                {isSelectionMode ? (
+                                  <TouchableOpacity 
+                                    style={styles.recordItemContainer}
+                                    onPress={() => handleToggleRecord(record.id)}
+                                  >
+                                    <View style={styles.recordItem}>
+                                      <View style={[
+                                        styles.checkbox,
+                                        selectedRecordIds.includes(record.id) && styles.checkboxChecked
+                                      ]}>
+                                        {selectedRecordIds.includes(record.id) && (
+                                          <Check color="#fff" size={14} />
+                                        )}
+                                      </View>
+                                      <View style={styles.recordContent}>
+                                        <Text style={styles.recordName}>{record.exercise?.name || '알 수 없는 운동'}</Text>
+                                        <Text style={styles.recordCategory}>
+                                          {record.sets && record.sets.length > 0 
+                                            ? `${record.sets.length}세트 - ${record.sets.map((s: RecordSet) => `${s.weight}kg × ${s.reps}회`).join(' · ')}`
+                                            : '기록 없음'}
+                                        </Text>
+                                      </View>
                                     </View>
-                                    <View style={styles.recordContent}>
-                                      <Text style={styles.recordName}>{record.exercise?.name || '알 수 없는 운동'}</Text>
-                                      <Text style={styles.recordCategory}>
-                                        {record.sets && record.sets.length > 0 
-                                          ? `${record.sets.length}세트 - ${record.sets.map((s: RecordSet) => `${s.weight}kg × ${s.reps}회`).join(', ')}`
-                                          : '기록 없음'}
-                                      </Text>
-                                    </View>
-                                  </View>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                  style={styles.deleteRecordButton}
-                                  onPress={() => handleDeleteRecord(record.id, record.exercise?.name || '운동')}
-                                >
-                                  <Trash2 color={Colors.danger} size={20} />
-                                </TouchableOpacity>
+                                  </TouchableOpacity>
+                                ) : (
+                                  <>
+                                    <TouchableOpacity 
+                                      style={styles.recordItemContainer}
+                                      onPress={() => !isActive && openSetModal(record)}
+                                      onLongPress={Platform.OS === 'web' ? drag : undefined}
+                                    >
+                                      <View style={styles.recordItem}>
+                                        <View style={styles.recordNumber}>
+                                          <Text style={styles.recordNumberText}>{currentIndex + 1}</Text>
+                                        </View>
+                                        <View style={styles.recordContent}>
+                                          <Text style={styles.recordName}>{record.exercise?.name || '알 수 없는 운동'}</Text>
+                                          <Text style={styles.recordCategory}>
+                                            {record.sets && record.sets.length > 0 
+                                              ? `${record.sets.length}세트 - ${record.sets.map((s: RecordSet) => `${s.weight}kg × ${s.reps}회`).join(' · ')}`
+                                              : '기록 없음'}
+                                          </Text>
+                                        </View>
+                                      </View>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                      style={styles.deleteRecordButton}
+                                      onPress={() => handleDeleteRecord(record.id, record.exercise?.name || '운동')}
+                                    >
+                                      <Trash2 color={Colors.danger} size={20} />
+                                    </TouchableOpacity>
+                                  </>
+                                )}
                               </View>
                             </ScaleDecorator>
                           );
@@ -947,8 +1149,22 @@ export default function RoutinesScreen() {
                       <View style={styles.routineTemplateExercises}>
                         {routine.exercises.map((ex, idx) => (
                           <View key={idx} style={styles.routineTemplateExerciseItem}>
-                            <Text style={styles.routineTemplateExerciseNumber}>{idx + 1}</Text>
-                            <Text style={styles.routineTemplateExerciseName}>{ex.exerciseName}</Text>
+                            <View style={styles.routineTemplateExerciseRow}>
+                              <Text style={styles.routineTemplateExerciseNumber}>{idx + 1}</Text>
+                              <Text style={styles.routineTemplateExerciseName}>{ex.exerciseName}</Text>
+                            </View>
+                            {ex.sets && ex.sets.length > 0 && (
+                              <View style={styles.routineTemplateSetsContainer}>
+                                <Text style={styles.routineTemplateSetText}>
+                                  {ex.sets.length}세트 - {ex.sets.map((set, setIdx) => (
+                                    <Text key={setIdx}>
+                                      {set.weight}kg × {set.reps}회
+                                      {setIdx < ex.sets!.length - 1 && ' · '}
+                                    </Text>
+                                  ))}
+                                </Text>
+                              </View>
+                            )}
                           </View>
                         ))}
                       </View>
@@ -1497,7 +1713,7 @@ export default function RoutinesScreen() {
                                   <Text style={styles.selectedExerciseCategory}>{item.category}</Text>
                                   {item.sets && item.sets.length > 0 && (
                                     <Text style={styles.selectedExerciseSets}>
-                                      {item.sets.length}세트 • {item.sets.map(s => `${s.weight}kg × ${s.reps}회`).join(', ')}
+                                      {item.sets.length}세트 • {item.sets.map(s => `${s.weight}kg × ${s.reps}회`).join(' · ')}
                                     </Text>
                                   )}
                                 </TouchableOpacity>
@@ -1746,6 +1962,95 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 14,
+  },
+  selectionModeButton: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  selectionModeButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  selectAllButton: {
+    backgroundColor: Colors.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  selectAllButtonText: {
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  selectAllButtonTextActive: {
+    color: Colors.primary,
+  },
+  deleteSelectedButton: {
+    backgroundColor: Colors.danger,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+    shadowColor: Colors.danger,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  deleteSelectedButtonDisabled: {
+    backgroundColor: Colors.border,
+    opacity: 0.5,
+  },
+  deleteSelectedButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  cancelSelectionButton: {
+    backgroundColor: Colors.textSecondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+  },
+  cancelSelectionButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -2265,6 +2570,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   routineTemplateExerciseItem: {
+    gap: 4,
+    marginBottom: 4,
+  },
+  routineTemplateExerciseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -2278,6 +2587,16 @@ const styles = StyleSheet.create({
   routineTemplateExerciseName: {
     fontSize: 14,
     color: Colors.text,
+  },
+  routineTemplateSetsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginLeft: 28,
+    marginTop: 2,
+  },
+  routineTemplateSetText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
   // 루틴 생성 모달 스타일
   routineNameFixedContainer: {
