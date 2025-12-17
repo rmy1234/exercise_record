@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   startButton: {
     backgroundColor: Colors.primary,
     borderRadius: 20,
-    paddingVertical: 24,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

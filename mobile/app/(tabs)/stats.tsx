@@ -27,7 +27,8 @@ const CHART_PADDING_VERTICAL = 34; // 상하 여백 확보
 const Y_AXIS_LABEL_OFFSET = 19; // 라벨을 그리드선에 맞춰 정렬
 
 interface StatsData {
-  date: string;
+  date: string; // 표시용 (MM/DD)
+  fullDate: Date; // 필터링/정렬용
   weight: number;
   muscle: number;
   fat: number;
@@ -35,11 +36,12 @@ interface StatsData {
 
 // Inbody 데이터를 StatsData 형식으로 변환
 const convertInbodyToStatsData = (inbody: Inbody): StatsData => {
-  const date = new Date(inbody.date);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const fullDate = new Date(inbody.date);
+  const month = String(fullDate.getMonth() + 1).padStart(2, '0');
+  const day = String(fullDate.getDate()).padStart(2, '0');
   return {
     date: `${month}/${day}`,
+    fullDate: fullDate,
     weight: inbody.weight,
     muscle: inbody.skeletalMuscle,
     fat: inbody.bodyFatPercent || 0,
@@ -47,7 +49,8 @@ const convertInbodyToStatsData = (inbody: Inbody): StatsData => {
 };
 
 interface ExerciseRecordData {
-  date: string;
+  date: string; // 표시용 (MM/DD)
+  fullDate: Date; // 필터링/정렬용
   weight: number; // 최고 기록 (weight × reps의 최대값)
   sets: Array<{ weight: number; reps: number; setNumber: number }>;
 }
@@ -92,11 +95,7 @@ export default function StatsScreen() {
       const inbodyList = await inbodyApi.getAll(user.id);
       const statsData = inbodyList
         .map(convertInbodyToStatsData)
-        .sort((a, b) => {
-          const dateA = new Date(`2024/${a.date}`);
-          const dateB = new Date(`2024/${b.date}`);
-          return dateA.getTime() - dateB.getTime();
-        });
+        .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
       setBodyData(statsData);
     } catch (e) {
       console.error('Failed to fetch body data', e);
@@ -169,10 +168,11 @@ export default function StatsScreen() {
       const dateMap = new Map<string, ExerciseRecordData>();
       
       records.forEach(record => {
-        const date = new Date(record.date);
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+        const fullDate = new Date(record.date);
+        const month = String(fullDate.getMonth() + 1).padStart(2, '0');
+        const day = String(fullDate.getDate()).padStart(2, '0');
         const dateStr = `${month}/${day}`;
+        const dateKey = fullDate.toISOString().split('T')[0]; // YYYY-MM-DD 형식으로 고유 키
         
         if (!record.sets || record.sets.length === 0) return;
         
@@ -196,20 +196,16 @@ export default function StatsScreen() {
           return best;
         });
         
-        dateMap.set(dateStr, {
+        dateMap.set(dateKey, {
           date: dateStr,
+          fullDate: fullDate,
           weight: bestSet.weight, // 최고 무게
           sets,
         });
       });
       
       const sortedRecords = Array.from(dateMap.values()).sort((a, b) => {
-        // MM/DD 형식에서 월과 일 추출
-        const [monthA, dayA] = a.date.split('/').map(Number);
-        const [monthB, dayB] = b.date.split('/').map(Number);
-        const dateA = new Date(2024, monthA - 1, dayA);
-        const dateB = new Date(2024, monthB - 1, dayB);
-        return dateA.getTime() - dateB.getTime();
+        return a.fullDate.getTime() - b.fullDate.getTime();
       });
       
       setExerciseRecords(sortedRecords);
@@ -227,7 +223,7 @@ export default function StatsScreen() {
 
   const handleAddData = () => {
     const today = new Date();
-    const formattedDate = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+    const formattedDate = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
     
     setInputDate(formattedDate);
     setInputWeight('');
@@ -243,10 +239,9 @@ export default function StatsScreen() {
     }
 
     try {
-      // MM/DD 형식을 YYYY-MM-DD로 변환
-      const [month, day] = inputDate.split('/').map(Number);
-      const currentYear = new Date().getFullYear();
-      const dateStr = `${currentYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      // YYYY/MM/DD 형식을 YYYY-MM-DD로 변환
+      const [year, month, day] = inputDate.split('/').map(Number);
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
       await inbodyApi.create({
         userId: user.id,
@@ -292,19 +287,11 @@ export default function StatsScreen() {
     }
     
     const filtered = bodyData.filter(item => {
-      const [month, day] = item.date.split('/').map(Number);
-      const itemDate = new Date(now.getFullYear(), month - 1, day);
-      return itemDate >= cutoffDate;
+      return item.fullDate >= cutoffDate;
     });
     
     // 날짜순으로 정렬
-    return filtered.sort((a, b) => {
-      const [monthA, dayA] = a.date.split('/').map(Number);
-      const [monthB, dayB] = b.date.split('/').map(Number);
-      const dateA = new Date(now.getFullYear(), monthA - 1, dayA);
-      const dateB = new Date(now.getFullYear(), monthB - 1, dayB);
-      return dateA.getTime() - dateB.getTime();
-    });
+    return filtered.sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
   };
 
   const filteredBodyData = getFilteredBodyData();
@@ -372,9 +359,7 @@ export default function StatsScreen() {
     }
     
     return exerciseRecords.filter(item => {
-      const [month, day] = item.date.split('/').map(Number);
-      const itemDate = new Date(now.getFullYear(), month - 1, day);
-      return itemDate >= cutoffDate;
+      return item.fullDate >= cutoffDate;
     });
   };
 
@@ -719,109 +704,111 @@ export default function StatsScreen() {
               </View>
             </View>
 
-            {exerciseChartData ? (
-              <View style={styles.chartContainer}>
-                <View style={styles.chartHeader}>
-                  <View style={styles.periodFilterContainer}>
-                    <TouchableOpacity
-                      style={[styles.periodFilterButton, exerciseFilter === 'week' && styles.periodFilterButtonActive]}
-                      onPress={() => setExerciseFilter('week')}
-                    >
-                      <Text style={[styles.periodFilterText, exerciseFilter === 'week' && styles.periodFilterTextActive]}>
-                        주
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.periodFilterButton, exerciseFilter === 'month' && styles.periodFilterButtonActive]}
-                      onPress={() => setExerciseFilter('month')}
-                    >
-                      <Text style={[styles.periodFilterText, exerciseFilter === 'month' && styles.periodFilterTextActive]}>
-                        월
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.periodFilterButton, exerciseFilter === 'year' && styles.periodFilterButtonActive]}
-                      onPress={() => setExerciseFilter('year')}
-                    >
-                      <Text style={[styles.periodFilterText, exerciseFilter === 'year' && styles.periodFilterTextActive]}>
-                        연
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={styles.chartWithYAxis}>
-                  {/* Y축 라벨 (고정) */}
-                  <View style={styles.yAxisContainer}>
-                    {(() => {
-                      const weights = filteredExerciseRecords.map(r => r.weight);
-                      if (weights.length === 0) return null;
-                      const min = Math.min(...weights);
-                      const max = Math.max(...weights);
-                      const range = max - min || 1;
-                      const step = range / CHART_SEGMENTS;
-                      const yValues: string[] = [];
-                      for (let i = CHART_SEGMENTS; i >= 0; i--) {
-                        const value = min + (step * i);
-                        yValues.push(value.toFixed(0));
-                      }
-                      return renderYAxisLabels(yValues);
-                    })()}
-                  </View>
-                  {/* 그래프 영역 (스크롤 가능) */}
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.chartScrollView}
-                    contentContainerStyle={styles.chartScrollContent}
-                  >
-                    <View style={styles.chartWrapper}>
-                      <LineChart
-                        data={exerciseChartData}
-                        width={calculateChartWidth(filteredExerciseRecords.length)}
-                        height={CHART_HEIGHT}
-                        yAxisLabel=""
-                        yAxisSuffix=""
-                        yLabelsOffset={-1000}
-                        xLabelsOffset={-5}
-                        onDataPointClick={handleExerciseDataPointClick}
-                        chartConfig={{
-                          backgroundColor: Colors.card,
-                          backgroundGradientFrom: Colors.card,
-                          backgroundGradientTo: Colors.card,
-                          decimalPlaces: 1,
-                          color: (opacity = 1) => Colors.primary,
-                          labelColor: (opacity = 1) => `rgba(0, 0, 0, 0.7)`,
-                          style: { borderRadius: 16 },
-                          propsForDots: { r: '6', strokeWidth: '2' },
-                          propsForLabels: { fontSize: 13, dy: 18 }, // x축 라벨 여백 확보
-                          propsForBackgroundLines: {
-                            strokeDasharray: '',
-                            stroke: Colors.border,
-                            strokeOpacity: 0.3,
-                          },
-                          strokeWidth: 2,
-                        }}
-                        style={styles.chart}
-                        withDots={true}
-                        withInnerLines={true}
-                        withOuterLines={false}
-                        withVerticalLines={false}
-                        withHorizontalLines={true}
-                        withShadow={false}
-                        fromZero={false}
-                        segments={CHART_SEGMENTS}
-                      />
+            <View style={styles.chartContainer}>
+              {exerciseChartData ? (
+                <>
+                  <View style={styles.chartHeader}>
+                    <View style={styles.periodFilterContainer}>
+                      <TouchableOpacity
+                        style={[styles.periodFilterButton, exerciseFilter === 'week' && styles.periodFilterButtonActive]}
+                        onPress={() => setExerciseFilter('week')}
+                      >
+                        <Text style={[styles.periodFilterText, exerciseFilter === 'week' && styles.periodFilterTextActive]}>
+                          주
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.periodFilterButton, exerciseFilter === 'month' && styles.periodFilterButtonActive]}
+                        onPress={() => setExerciseFilter('month')}
+                      >
+                        <Text style={[styles.periodFilterText, exerciseFilter === 'month' && styles.periodFilterTextActive]}>
+                          월
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.periodFilterButton, exerciseFilter === 'year' && styles.periodFilterButtonActive]}
+                        onPress={() => setExerciseFilter('year')}
+                      >
+                        <Text style={[styles.periodFilterText, exerciseFilter === 'year' && styles.periodFilterTextActive]}>
+                          연
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  </ScrollView>
+                  </View>
+                  <View style={styles.chartWithYAxis}>
+                    {/* Y축 라벨 (고정) */}
+                    <View style={styles.yAxisContainer}>
+                      {(() => {
+                        const weights = filteredExerciseRecords.map(r => r.weight);
+                        if (weights.length === 0) return null;
+                        const min = Math.min(...weights);
+                        const max = Math.max(...weights);
+                        const range = max - min || 1;
+                        const step = range / CHART_SEGMENTS;
+                        const yValues: string[] = [];
+                        for (let i = CHART_SEGMENTS; i >= 0; i--) {
+                          const value = min + (step * i);
+                          yValues.push(value.toFixed(0));
+                        }
+                        return renderYAxisLabels(yValues);
+                      })()}
+                    </View>
+                    {/* 그래프 영역 (스크롤 가능) */}
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.chartScrollView}
+                      contentContainerStyle={styles.chartScrollContent}
+                    >
+                      <View style={styles.chartWrapper}>
+                        <LineChart
+                          data={exerciseChartData}
+                          width={calculateChartWidth(filteredExerciseRecords.length)}
+                          height={CHART_HEIGHT}
+                          yAxisLabel=""
+                          yAxisSuffix=""
+                          yLabelsOffset={-1000}
+                          xLabelsOffset={-5}
+                          onDataPointClick={handleExerciseDataPointClick}
+                          chartConfig={{
+                            backgroundColor: Colors.card,
+                            backgroundGradientFrom: Colors.card,
+                            backgroundGradientTo: Colors.card,
+                            decimalPlaces: 1,
+                            color: (opacity = 1) => Colors.primary,
+                            labelColor: (opacity = 1) => `rgba(0, 0, 0, 0.7)`,
+                            style: { borderRadius: 16 },
+                            propsForDots: { r: '6', strokeWidth: '2' },
+                            propsForLabels: { fontSize: 13, dy: 18 }, // x축 라벨 여백 확보
+                            propsForBackgroundLines: {
+                              strokeDasharray: '',
+                              stroke: Colors.border,
+                              strokeOpacity: 0.3,
+                            },
+                            strokeWidth: 2,
+                          }}
+                          style={styles.chart}
+                          withDots={true}
+                          withInnerLines={true}
+                          withOuterLines={false}
+                          withVerticalLines={false}
+                          withHorizontalLines={true}
+                          withShadow={false}
+                          fromZero={false}
+                          segments={CHART_SEGMENTS}
+                        />
+                      </View>
+                    </ScrollView>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>
+                    {!selectedPart ? '표시할 데이터 종류를 선택해주세요' : '기록이 없습니다'}
+                  </Text>
                 </View>
-              </View>
-            ) : (
-              <View style={styles.noDataContainer}>
-                <Text style={styles.noDataText}>
-                  {selectedExercise ? '기록이 없습니다' : '운동을 선택해주세요'}
-                </Text>
-              </View>
-            )}
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -843,12 +830,12 @@ export default function StatsScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>날짜 (MM/DD)</Text>
+              <Text style={styles.label}>날짜 (YYYY/MM/DD)</Text>
               <TextInput
                 style={styles.input}
                 value={inputDate}
                 onChangeText={setInputDate}
-                placeholder="12/31"
+                placeholder="2024/12/31"
                 keyboardType="numbers-and-punctuation"
               />
               
@@ -1037,16 +1024,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-  },
   addButton: {
     backgroundColor: Colors.primary,
     flexDirection: 'row',
@@ -1087,7 +1064,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: Colors.card,
-    padding: 16,
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -1375,47 +1352,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  exerciseItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  exerciseItemText: {
-    fontSize: 16,
-    color: Colors.text,
-  },
-  backText: {
-    fontSize: 16,
-    color: Colors.text,
-    fontWeight: '500',
-  },
-  partsContainer: {
-    padding: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'space-between',
-  },
-  partCard: {
-    width: '47%',
-    aspectRatio: 1,
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 16,
-  },
-  partText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
-    marginTop: 8,
   },
   bodyDetailContainer: {
     marginTop: 10,
