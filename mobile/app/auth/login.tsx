@@ -12,13 +12,41 @@ import {
 } from 'react-native';
 import { Link } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '../../context/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
 
 const REMEMBER_ME_KEY = 'rememberMe';
-const SAVED_CREDENTIALS_KEY = 'savedCredentials';
+const SAVED_EMAIL_KEY = 'savedEmail';
+const SAVED_PASSWORD_KEY = 'savedPassword';
+
+// 보안 저장소 유틸리티 (웹에서는 SecureStore 사용 불가)
+const secureStorage = {
+  async setItem(key: string, value: string) {
+    if (Platform.OS === 'web') {
+      // 웹에서는 sessionStorage 사용 (브라우저 닫으면 삭제됨)
+      sessionStorage.setItem(key, value);
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  },
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return sessionStorage.getItem(key);
+    } else {
+      return await SecureStore.getItemAsync(key);
+    }
+  },
+  async removeItem(key: string) {
+    if (Platform.OS === 'web') {
+      sessionStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -36,9 +64,11 @@ export default function LoginScreen() {
     try {
       const savedRememberMe = await AsyncStorage.getItem(REMEMBER_ME_KEY);
       if (savedRememberMe === 'true') {
-        const savedCredentials = await AsyncStorage.getItem(SAVED_CREDENTIALS_KEY);
-        if (savedCredentials) {
-          const { email: savedEmail, password: savedPassword } = JSON.parse(savedCredentials);
+        // 보안 저장소에서 이메일과 비밀번호 가져오기
+        const savedEmail = await secureStorage.getItem(SAVED_EMAIL_KEY);
+        const savedPassword = await secureStorage.getItem(SAVED_PASSWORD_KEY);
+        
+        if (savedEmail && savedPassword) {
           setEmail(savedEmail);
           setPassword(savedPassword);
           setRememberMe(true);
@@ -48,8 +78,7 @@ export default function LoginScreen() {
             await login({ email: savedEmail, password: savedPassword });
           } catch (e) {
             // 자동 로그인 실패 시 저장된 정보 삭제
-            await AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY);
-            await AsyncStorage.removeItem(REMEMBER_ME_KEY);
+            await clearSavedCredentials();
             setRememberMe(false);
           }
         }
@@ -61,9 +90,12 @@ export default function LoginScreen() {
     }
   };
 
-  const saveCredentials = async (email: string, password: string) => {
+  const saveCredentials = async (emailToSave: string, passwordToSave: string) => {
     try {
-      await AsyncStorage.setItem(SAVED_CREDENTIALS_KEY, JSON.stringify({ email, password }));
+      // 이메일과 비밀번호는 보안 저장소에 저장 (암호화됨)
+      await secureStorage.setItem(SAVED_EMAIL_KEY, emailToSave);
+      await secureStorage.setItem(SAVED_PASSWORD_KEY, passwordToSave);
+      // rememberMe 플래그는 일반 저장소에 저장
       await AsyncStorage.setItem(REMEMBER_ME_KEY, 'true');
     } catch (e) {
       console.error('Failed to save credentials', e);
@@ -72,7 +104,8 @@ export default function LoginScreen() {
 
   const clearSavedCredentials = async () => {
     try {
-      await AsyncStorage.removeItem(SAVED_CREDENTIALS_KEY);
+      await secureStorage.removeItem(SAVED_EMAIL_KEY);
+      await secureStorage.removeItem(SAVED_PASSWORD_KEY);
       await AsyncStorage.removeItem(REMEMBER_ME_KEY);
     } catch (e) {
       console.error('Failed to clear credentials', e);

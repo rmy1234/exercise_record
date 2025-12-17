@@ -1,8 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { User, LoginRequest, CreateUserRequest } from '../types';
 import { usersApi } from '../services/api';
 import { router } from 'expo-router';
+
+// 보안 저장소 유틸리티
+const secureStorage = {
+  async removeItem(key: string) {
+    if (Platform.OS === 'web') {
+      sessionStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
 
 interface AuthContextType {
   user: User | null;
@@ -62,7 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      // 사용자 정보 삭제
       await AsyncStorage.removeItem('user');
+      // 로그인 유지 정보도 삭제 (로그아웃은 명시적 의사 표현이므로)
+      await AsyncStorage.removeItem('rememberMe');
+      // 보안 저장소에서 credentials 삭제
+      await secureStorage.removeItem('savedEmail');
+      await secureStorage.removeItem('savedPassword');
       setUser(null);
       router.replace('/auth/login');
     } catch (e) {
